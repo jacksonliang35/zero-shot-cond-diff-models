@@ -23,6 +23,10 @@ def get_beta_schedule(beta_schedule, beta_start, beta_end, timesteps, dtype=torc
         betas = beta_end * torch.ones(timesteps, dtype=dtype)
     elif beta_schedule == 'jsd':  # 1/T, 1/(T-1), 1/(T-2), ..., 1
         betas = 1. / torch.linspace(timesteps, 1, timesteps, dtype=dtype)
+    elif beta_schedule == 'genli':
+        t_values = torch.arange(timesteps, dtype=dtype)
+        inner = beta_start * (1 + beta_end)**(t_values)
+        betas = beta_end * torch.minimum(inner,torch.ones(timesteps))
     else:
         raise NotImplementedError(beta_schedule)
     assert betas.shape == (timesteps, )

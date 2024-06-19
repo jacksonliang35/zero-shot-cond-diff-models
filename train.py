@@ -5,7 +5,7 @@ import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from datetime import datetime
-from ddim import *
+# from ddim import *
 from ddpm_torch import *
 from functools import partial
 from torch.distributed.elastic.multiprocessing import errors
@@ -171,12 +171,13 @@ def train(rank=0, args=None, temp_dir=""):
             json.dump(hps, f, indent=2)
         if not os.path.exists(image_dir):
             os.makedirs(image_dir)
-
+    
     trainer = Trainer(
         model=model,
         optimizer=optimizer,
         diffusion=diffusion,
-        epochs=train_config.epochs,
+        # epochs=train_config.epochs,
+        epochs=args.epochs,
         trainloader=trainloader,
         sampler=sampler,
         scheduler=scheduler,
@@ -249,7 +250,7 @@ def main():
     parser.add_argument("--num-accum", default=1, type=int, help="number of mini-batches before an update")
     parser.add_argument("--block-size", default=1, type=int, help="block size used for pixel shuffle")
     parser.add_argument("--timesteps", default=1000, type=int, help="number of diffusion steps")
-    parser.add_argument("--beta-schedule", choices=["quad", "linear", "warmup10", "warmup50", "jsd"], default="linear")
+    parser.add_argument("--beta-schedule", choices=["quad", "linear", "warmup10", "warmup50", "jsd", "genli"], default="linear")
     parser.add_argument("--beta-start", default=0.0001, type=float)
     parser.add_argument("--beta-end", default=0.02, type=float)
     parser.add_argument("--model-mean-type", choices=["mean", "x_0", "eps"], default="eps", type=str)
@@ -264,11 +265,11 @@ def main():
     parser.add_argument("--config-dir", default="./configs", type=str)
     parser.add_argument("--chkpt-dir", default="./chkpts", type=str)
     parser.add_argument("--chkpt-name", default="", type=str)
-    parser.add_argument("--chkpt-intv", default=120, type=int, help="frequency of saving a checkpoint")
+    parser.add_argument("--chkpt-intv", default=10, type=int, help="frequency of saving a checkpoint")
     parser.add_argument("--seed", default=1234, type=int, help="random seed")
     parser.add_argument("--resume", action="store_true", help="to resume training from a checkpoint")
     parser.add_argument("--chkpt-path", default="", type=str, help="checkpoint path used to resume training")
-    parser.add_argument("--eval", action="store_true", help="whether to evaluate fid during training")
+    parser.add_argument("--eval", default=True, type=bool, help="whether to evaluate fid during training")
     parser.add_argument("--eval-total-size", default=50000, type=int)
     parser.add_argument("--eval-batch-size", default=256, type=int)
     parser.add_argument("--use-ema", action="store_true", help="whether to use exponential moving average")
