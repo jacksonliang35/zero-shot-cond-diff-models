@@ -2,7 +2,7 @@ import math
 import torch
 from .functions import normal_kl, discretized_gaussian_loglik, flat_mean
 
-from diffusion import *
+from .diffusion import GaussianDiffusion
 
 # The following code is adapted from DDNM
 ###############################################
