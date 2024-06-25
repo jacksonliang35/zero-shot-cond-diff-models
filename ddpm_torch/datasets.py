@@ -71,16 +71,15 @@ class CIFAR10_COND_TEST(tvds.CIFAR10):
     # _transform = transforms.PILToTensor()
     train_size = 50000
     test_size = 10000
-    transform = transforms.Compose([
+    transform = [
         # transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         # transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-        transforms.Lambda(cond_transform_fn)
-    ])
+    ]
     _transform = transforms.PILToTensor()
 
-    def __init__(self, root, cond_transform_fn, split="test", transform=None, download=False):
+    def __init__(self, root, split="test", transform=None, download=False):
         super().__init__(root=root, train=split != "test", transform=transform or self._transform, download=download)
 
     def __getitem__(self, index):
@@ -267,12 +266,13 @@ def get_dataloader(
     dataset_cls = DATASET_DICT[dataset_name]
     dataset_info = DATASET_INFO[dataset_name]
     transform = dataset_cls.transform if not raw else None
+    if split == "test":
+        transform.append(transforms.Lambda(cond_transform_fn))
+        transform = transforms.Compose(transform)
     if distributed:
         batch_size = batch_size // int(os.environ.get("WORLD_SIZE", "1"))
     dataset_kwargs = {"root": root, "split": split, "transform": transform, "download": download}
     dataset_kwargs.update({k: v for k, v in kwargs.items() if k in dataset_kwargs})
-    if split == "test":
-        dataset_kwargs["cond_transform_fn"] = cond_transform_fn
     dataset = dataset_cls(**dataset_kwargs)
 
     if split != "test" and val_size > 0.:
