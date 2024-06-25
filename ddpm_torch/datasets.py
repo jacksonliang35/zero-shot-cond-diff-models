@@ -37,8 +37,8 @@ class MNIST(tvds.MNIST):
     train_size = 60000
     test_size = 10000
 
-    def __init__(self, root, split="train", transform=None):
-        super().__init__(root=root, train=split != "test", transform=transform or self._transform, download=False)
+    def __init__(self, root, split="train", transform=None, download=False):
+        super().__init__(root=root, train=split != "test", transform=transform or self._transform, download=download)
 
     def __getitem__(self, index):
         return super().__getitem__(index)[0]
@@ -58,12 +58,32 @@ class CIFAR10(tvds.CIFAR10):
     train_size = 50000
     test_size = 10000
 
-    def __init__(self, root, split="train", transform=None):
-        super().__init__(root=root, train=split != "test", transform=transform or self._transform, download=False)
+    def __init__(self, root, split="train", transform=None, download=False):
+        super().__init__(root=root, train=split != "test", transform=transform or self._transform, download=download)
 
     def __getitem__(self, index):
         return super().__getitem__(index)[0]
 
+@register_dataset
+class CIFAR10_COND_TEST(tvds.CIFAR10):
+    resolution = (32, 32)
+    channels = 3
+    # _transform = transforms.PILToTensor()
+    train_size = 50000
+    test_size = 10000
+
+    def __init__(self, root, cond_transform_fn, split="test", transform=None, download=False):
+        transform = transforms.Compose([
+            # transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            # transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+            transforms.Lambda(cond_transform_fn)
+        ])
+        super().__init__(root=root, train=split != "test", transform=transform, download=download)
+
+    def __getitem__(self, index):
+        return super().__getitem__(index)[0]
 
 def crop_celeba(img):
     return transforms.functional.crop(img, top=40, left=15, height=148, width=148)  # noqa
@@ -98,7 +118,8 @@ class CelebA(tvds.VisionDataset):
             self,
             root,
             split,
-            transform=None
+            transform=None,
+            download=False
     ):
         super().__init__(root, transform=transform or self._transform)
         self.split = split
@@ -175,7 +196,8 @@ class CelebA_HQ(tvds.VisionDataset):
             self,
             root,
             split,  # unused
-            transform=None
+            transform=None,
+            download=False
     ):
         super().__init__(root, transform=transform or self._transform)
         self.filename = sorted([
@@ -226,6 +248,7 @@ def get_dataloader(
         dataset,
         batch_size,
         split,
+        download=False,
         val_size=0.,
         random_seed=None,
         root=ROOT,
@@ -234,17 +257,21 @@ def get_dataloader(
         num_workers=0,
         distributed=False,
         raw=False,
+        cond_transform_fn=None,
         **kwargs
 ):
     assert isinstance(val_size, float) and 0 <= val_size < 1
 
-    dataset_name, dataset_cls = dataset, DATASET_DICT[dataset]
+    dataset_name = dataset + "_cond_test" if split == "test" else dataset
+    dataset_cls = DATASET_DICT[dataset_name]
     dataset_info = DATASET_INFO[dataset_name]
     transform = dataset_cls.transform if not raw else None
     if distributed:
         batch_size = batch_size // int(os.environ.get("WORLD_SIZE", "1"))
-    dataset_kwargs = {"root": root, "split": split, "transform": transform}
+    dataset_kwargs = {"root": root, "split": split, "transform": transform, "download": download}
     dataset_kwargs.update({k: v for k, v in kwargs.items() if k in dataset_kwargs})
+    if split == "test":
+        dataset_kwargs["cond_transform_fn"] = cond_transform_fn
     dataset = dataset_cls(**dataset_kwargs)
 
     if split != "test" and val_size > 0.:
