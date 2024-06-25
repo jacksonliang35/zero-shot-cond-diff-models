@@ -122,6 +122,7 @@ class ConditionalGaussianDiffusion(GaussianDiffusion):
     def p_cond_sample(self, denoise_fn, y, shape=None, device=torch.device("cpu"), noise=None, seed=None):
         B = (shape or noise.shape)[0]
         t = torch.empty((B, ), dtype=torch.int64, device=device)
+        y = y.to(device)
         rng = None
         if seed is not None:
             rng = torch.Generator(device).manual_seed(seed)
