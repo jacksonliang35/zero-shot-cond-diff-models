@@ -40,12 +40,9 @@ def get_degradation_operator(deg_type, chan=3, res=32, device=torch.device("cpu"
         # Ap = lambda z: MeanUpsample(z,scale)
     elif deg_type =='inpainting':
         # blocks 1/3 to 1/2 of pixels in height and width
-        def inpainting(z):
-            mask = torch.ones(chan, res, res, device=z.get_device(), dtype=torch.float64)
-            mask[:, res//3:res//2, res//3:res//2] = 0
-            return z*mask
-        # A = lambda z: z*mask
-        Ap = A = inpainting
+        mask = torch.ones(chan, res, res, device=device, dtype=torch.float64)
+        mask[:, res//3:res//2, res//3:res//2] = 0
+        Ap = A = lambda z: z*mask
     # elif deg_type =='all':
     #     loaded = np.load("inp_masks/mask.npy")
     #     mask = torch.from_numpy(loaded).to(self.device)
