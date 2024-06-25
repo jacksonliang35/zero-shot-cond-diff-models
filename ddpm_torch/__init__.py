@@ -1,6 +1,6 @@
 from .datasets import get_dataloader, DATASET_DICT, DATASET_INFO
 from .diffusion import GaussianDiffusion, get_beta_schedule
-from .cond_diffusion import get_degradation_operator
+from .cond_diffusion import ConditionalGaussianDiffusion, get_degradation_operator
 from .metrics import Evaluator
 from .models import UNet
 from .utils import seed_all, get_param, ConfigDict
@@ -18,6 +18,7 @@ __all__ = [
     "ModelWrapper",
     "Evaluator",
     "GaussianDiffusion",
+    "ConditionalGaussianDiffusion",
     "get_beta_schedule",
     "get_degradation_operator",
     "UNet"
