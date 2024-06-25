@@ -18,5 +18,6 @@ __all__ = [
     "Evaluator",
     "GaussianDiffusion",
     "get_beta_schedule",
+    "get_degradation_operator",
     "UNet"
 ]
