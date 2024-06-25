@@ -48,6 +48,7 @@ def generate(rank, args, counter=0):
     betas = get_beta_schedule(beta_schedule, beta_start, beta_end, num_diffusion_timesteps)
 
     H, Hp = get_degradation_operator(args.deg, device=device)
+    Hcpu, _ = get_degradation_operator(args.deg)
 
     use_ddim = args.use_ddim
     if use_ddim:
@@ -104,9 +105,9 @@ def generate(rank, args, counter=0):
 
     num_workers = args.num_workers
     testloader, _ = get_dataloader(
-        dataset, batch_size=train_config.batch_size, split="test", download=False, random_seed=seed,
+        dataset, batch_size=args.batch_size, split="test", download=True,
         root="~/datasets", drop_last=False, pin_memory=True, num_workers=num_workers, distributed=False,
-        cond_transformation = H
+        cond_transform_fn = Hcpu
     )  # drop_last to have a static input shape; num_workers > 0 to enable asynchronous data loading
 
     folder_name = folder_name + args.suffix
@@ -130,6 +131,10 @@ def generate(rank, args, counter=0):
         torch.backends.cudnn.benchmark = True  # noqa
 
     # One generated image from each test sample
+    if args.save_y:
+        save_y_dir = os.path.join(args.save_dir, "y_eval", exp_name, folder_name)
+        if is_leader and not os.path.exists(save_y_dir):
+            os.makedirs(save_y_dir)
     # for i, y in tqdm(enumerate(testloader), total=num_batches):
     for i, y in tqdm(enumerate(testloader), total=5):
         if isinstance(y, (list, tuple)):
@@ -138,13 +143,12 @@ def generate(rank, args, counter=0):
             shape = (local_total_size - i * batch_size, 3, image_res, image_res)
         x = diffusion.p_cond_sample(model, y, shape=shape, device=device, noise=torch.randn(shape, device=device)).cpu()
         x = (x * 127.5 + 127.5).round().clamp(0, 255).to(torch.uint8).permute(0, 2, 3, 1).numpy()
-        save_image(list(x), save_dir)
-        if args.save_y:
-            save_y_dir = os.path.join(args.save_dir, "y_eval", exp_name, folder_name)
-            if is_leader and not os.path.exists(save_y_dir):
-                os.makedirs(save_y_dir)
-            x0 = (y * 127.5 + 127.5).round().clamp(0, 255).to(torch.uint8).permute(0, 2, 3, 1).numpy()
-            save_image(list(x0), save_y_dir)
+        x0 = (y * 127.5 + 127.5).round().clamp(0, 255).to(torch.uint8).permute(0, 2, 3, 1).numpy()
+        for j in range(shape[0]):
+            iid = uuid.uuid4()
+            Image.fromarray(x[j], mode="RGB").save(f"{save_dir}/{iid}.png")
+            if args.save_y:
+                Image.fromarray(x0[j], mode="RGB").save(f"{save_y_dir}/{iid}.png")
 
     # pbar = None
     # if isinstance(counter, int):
@@ -190,7 +194,7 @@ def main():
     args = parser.parse_args()
 
     assert(args.num_gpus==1)
-    self.total_size = 10000     # size of CIFAR10 test
+    args.total_size = 10000     # size of CIFAR10 test
 
     world_size = args.world_size = args.num_gpus or 1
     local_total_size = args.local_total_size = args.total_size // world_size

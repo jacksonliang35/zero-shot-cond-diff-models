@@ -201,7 +201,7 @@ def train(rank=0, args=None, temp_dir=""):
         diffusion_eval = DDIM.from_ddpm(diffusion, eta=0., subsequence=subsequence)
     else:
         diffusion_eval = diffusion
-
+    
     if args.eval:
         evaluator = Evaluator(
             dataset=dataset,
@@ -269,7 +269,7 @@ def main():
     parser.add_argument("--seed", default=1234, type=int, help="random seed")
     parser.add_argument("--resume", action="store_true", help="to resume training from a checkpoint")
     parser.add_argument("--chkpt-path", default="", type=str, help="checkpoint path used to resume training")
-    parser.add_argument("--eval", default=True, type=bool, help="whether to evaluate fid during training")
+    parser.add_argument("--eval", action="store_true", help="whether to evaluate fid during training")
     parser.add_argument("--eval-total-size", default=50000, type=int)
     parser.add_argument("--eval-batch-size", default=256, type=int)
     parser.add_argument("--use-ema", action="store_true", help="whether to use exponential moving average")
