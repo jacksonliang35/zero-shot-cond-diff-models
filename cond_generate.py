@@ -183,7 +183,8 @@ def main():
     parser.add_argument("--skip-schedule", default="linear", type=str)
     parser.add_argument("--subseq-size", default=50, type=int)
     parser.add_argument("--suffix", default="_cond", type=str)
-    parser.add_argument("--max-workers", default=8, type=int)
+    # parser.add_argument("--max-workers", default=8, type=int)
+    parser.add_argument("--num-workers", default=4, type=int, help="number of workers for data loading")
     parser.add_argument("--num-gpus", default=1, type=int)
 
     args = parser.parse_args()
