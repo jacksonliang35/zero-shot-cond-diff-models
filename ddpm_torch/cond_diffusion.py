@@ -65,10 +65,10 @@ def get_degradation_operator(deg_type, chan=3, res=32, device=torch.device("cpu"
 ###############################################
 
 class ConditionalGaussianDiffusion(GaussianDiffusion):
-    def __init__(self, H, Hp, **diffusion_kwargs):
+    def __init__(self, betas, H, Hp, **diffusion_kwargs):
         assert(model_var_type in ["fixed-small", "fixed-large"])
         assert(model_mean_type == "eps")
-        super().init(**diffusion_kwargs)
+        super().init(betas, **diffusion_kwargs)
         self.H = H
         self.Hp = Hp
 
