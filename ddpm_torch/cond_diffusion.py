@@ -71,7 +71,7 @@ class ConditionalGaussianDiffusion(GaussianDiffusion):
         loss_type = diffusion_kwargs["loss_type"]
         assert(model_var_type in ["fixed-small", "fixed-large"])
         assert(model_mean_type == "eps")
-        super().init(betas, model_mean_type, model_var_type, loss_type, **diffusion_kwargs)
+        super().__init__(betas, model_mean_type, model_var_type, loss_type, **diffusion_kwargs)
         self.H = H
         self.Hp = Hp
 
