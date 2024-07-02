@@ -5,7 +5,6 @@ if __name__ == "__main__":
     import torch
     from PIL import Image
     from argparse import ArgumentParser
-    from .utils.functions import flat_sum
     from ddpm_torch import *
     from torch.utils.data import Dataset, Subset, DataLoader
     from torchvision import transforms
@@ -71,11 +70,11 @@ if __name__ == "__main__":
         imagefolder, batch_size=eval_batch_size, shuffle=False,
         num_workers=num_workers, pin_memory=True, drop_last=False)
     yloader = DataLoader(
-        yloader, batch_size=eval_batch_size, shuffle=False,
+        yfolder, batch_size=eval_batch_size, shuffle=False,
         num_workers=num_workers, pin_memory=True, drop_last=False)
 
     running_loss = 0.
-    for x, x0 in tqdm(zip(imageloader, yloader)):
-        running_loss += flat_sum((x-x0).pow(2))
+    for x, x0 in tqdm(zip(imageloader, yloader), total=len(imageloader)):
+        running_loss += torch.sum((x-x0).pow(2))
     running_loss /= eval_total_size
     print(running_loss)

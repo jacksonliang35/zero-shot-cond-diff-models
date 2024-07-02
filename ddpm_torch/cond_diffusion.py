@@ -41,7 +41,7 @@ def get_degradation_operator(deg_type, chan=3, res=32, device=torch.device("cpu"
     elif deg_type =='inpainting':
         # blocks 1/3 to 1/2 of pixels in height and width
         mask = torch.ones(chan, res, res, device=device, dtype=torch.float32)
-        mask[:, res//3:res//2, res//3:res//2] = 0
+        mask[:, res//4:2*res//3, res//3:res//2] = 0
         Ap = A = lambda z: z*mask
     # elif deg_type =='all':
     #     loaded = np.load("inp_masks/mask.npy")
@@ -119,7 +119,7 @@ class ConditionalGaussianDiffusion(GaussianDiffusion):
         return (sample, pred_x_0) if return_pred else sample
 
     @torch.inference_mode()
-    def p_cond_sample(self, denoise_fn, y, shape=None, device=torch.device("cpu"), noise=None, seed=None):
+    def p_cond_sample(self, denoise_fn, y, div=1, shape=None, device=torch.device("cpu"), noise=None, seed=None):
         B = (shape or noise.shape)[0]
         t = torch.empty((B, ), dtype=torch.int64, device=device)
         y = y.to(device)
@@ -130,7 +130,7 @@ class ConditionalGaussianDiffusion(GaussianDiffusion):
             x_t = torch.empty(shape, device=device).normal_(generator=rng)
         else:
             x_t = noise.to(device)
-        for ti in range(self.timesteps - 1, -1, -1):
+        for ti in range(self.timesteps - div, -1, -div):
             t.fill_(ti)
             x_t = self.p_cond_sample_step(denoise_fn, x_t, t, y, generator=rng)
         return x_t

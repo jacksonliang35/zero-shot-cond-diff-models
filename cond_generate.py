@@ -135,13 +135,13 @@ def generate(rank, args, counter=0):
         save_y_dir = os.path.join(args.save_dir, "y_eval", exp_name, folder_name)
         if is_leader and not os.path.exists(save_y_dir):
             os.makedirs(save_y_dir)
-    # for i, y in tqdm(enumerate(testloader), total=num_batches):
-    for i, y in tqdm(enumerate(testloader), total=5):
+    assert(args.div > 0)
+    for i, y in tqdm(enumerate(testloader), total=local_num_batches):
         if isinstance(y, (list, tuple)):
             y = y[0]  # discard classification labels
         if i == local_num_batches - 1:
             shape = (local_total_size - i * batch_size, 3, image_res, image_res)
-        x = diffusion.p_cond_sample(model, y, shape=shape, device=device, noise=torch.randn(shape, device=device)).cpu()
+        x = diffusion.p_cond_sample(model, y, div=args.div, shape=shape, device=device, noise=torch.randn(shape, device=device)).cpu()
         x = (x * 127.5 + 127.5).round().clamp(0, 255).to(torch.uint8).permute(0, 2, 3, 1).numpy()
         x0 = (y * 127.5 + 127.5).round().clamp(0, 255).to(torch.uint8).permute(0, 2, 3, 1).numpy()
         for j in range(shape[0]):
@@ -184,6 +184,7 @@ def main():
     parser.add_argument("--use-ddim", action="store_true")
     parser.add_argument("--eta", default=0., type=float)
     parser.add_argument("--deg", choices=["colorization", "inpainting"], default="inpainting", type=str, help="type of degradation")
+    parser.add_argument("--div", default=1, type=int)
     parser.add_argument("--skip-schedule", default="linear", type=str)
     parser.add_argument("--subseq-size", default=50, type=int)
     parser.add_argument("--suffix", default="_cond", type=str)

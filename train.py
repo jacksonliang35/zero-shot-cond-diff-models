@@ -250,7 +250,7 @@ def main():
     parser.add_argument("--num-accum", default=1, type=int, help="number of mini-batches before an update")
     parser.add_argument("--block-size", default=1, type=int, help="block size used for pixel shuffle")
     parser.add_argument("--timesteps", default=1000, type=int, help="number of diffusion steps")
-    parser.add_argument("--beta-schedule", choices=["quad", "linear", "warmup10", "warmup50", "jsd", "genli"], default="linear")
+    # parser.add_argument("--beta-schedule", choices=["quad", "linear", "warmup10", "warmup50", "jsd", "genli"], default="linear")
     parser.add_argument("--beta-start", default=0.0001, type=float)
     parser.add_argument("--beta-end", default=0.02, type=float)
     parser.add_argument("--model-mean-type", choices=["mean", "x_0", "eps"], default="eps", type=str)

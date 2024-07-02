@@ -28,7 +28,7 @@ def get_beta_schedule(beta_schedule, beta_start, beta_end, timesteps, dtype=torc
         c = 3.
         inner = beta_start * (1 + c * math.log(timesteps) / timesteps)**(t_values)
         betas = c * math.log(timesteps) / timesteps * torch.minimum(inner,torch.ones(timesteps))
-        betas[0] = delta
+        betas[0] = beta_start
     else:
         raise NotImplementedError(beta_schedule)
     assert betas.shape == (timesteps, )
