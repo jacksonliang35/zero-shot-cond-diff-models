@@ -19,6 +19,7 @@ if __name__ == "__main__":
     parser.add_argument("--eval-total-size", default=10000, type=int)
     parser.add_argument("--num-workers", default=4, type=int)
     parser.add_argument("--device", default="cuda:0", type=str)
+    parser.add_argument("--precomputed-dir", default="./precomputed", type=str)
     parser.add_argument("--seed", default=1234, type=int)
     parser.add_argument("--sample-folder", default="", type=str)
     parser.add_argument("--sample-y-folder", default="", type=str)
@@ -42,6 +43,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    precomputed_dir = args.precomputed_dir
     eval_batch_size = args.eval_batch_size
     eval_total_size = args.eval_total_size
     num_workers = args.num_workers
@@ -109,24 +111,27 @@ if __name__ == "__main__":
         running_loss = 0.
         for x, x0 in tqdm(zip(imageloader, yloader), total=len(imageloader)):
             running_loss += torch.sum(torch.mean((x-x0).pow(2), dim=[1,2,3]))
-        return running_loss / eval_total_size
+        return running_loss[0] / eval_total_size
     print("MSE:", eval_mse())
 
     # SSIM
-    def eval_ssim():
-        from torcheval.metrics import StructuralSimilarity
-        ssim = StructuralSimilarity(device = model_device)
+    def eval_ssim(): 
+        from torchmetrics.image import StructuralSimilarityIndexMeasure
+        ssim = StructuralSimilarityIndexMeasure(reduction='sum', data_range=(-1.,1.)).to(model_device)
+        running_loss = 0.
         for x, x0 in tqdm(zip(imageloader, yloader), total=len(imageloader)):
-            ssim.update(x,x0)
-        return ssim.compute()
+            running_loss += ssim(x.to(input_device),x0.to(input_device))
+        return running_loss.detach().cpu()[0] / eval_total_size
     print("SSIM:", eval_ssim())
 
     # LPIPS
     def eval_lpips():
-        import lpips
-        loss_fn_vgg = lpips.LPIPS(net='vgg')
+        # import lpips
+        from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
+        # loss_fn_vgg = lpips.LPIPS(net='vgg').to(model_device)
+        lpips = LearnedPerceptualImagePatchSimilarity(net_type='vgg', reduction='sum').to(model_device)
         running_loss = 0.
         for x, x0 in tqdm(zip(imageloader, yloader), total=len(imageloader)):
-            running_loss += loss_fn_vgg(x.to(input_device), x0.to(input_device))
-        return running_loss / eval_total_size
+            running_loss += torch.sum(lpips(x.to(input_device), x0.to(input_device)))
+        return running_loss.detach().cpu()[0] / eval_total_size
     print("LPIPS:", eval_lpips())
