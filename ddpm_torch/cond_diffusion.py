@@ -116,8 +116,13 @@ class ConditionalGaussianDiffusion(GaussianDiffusion):
             return model_mean, model_var, model_logvar
 
     def p_cond_sample_step(self, denoise_fn, x_t, t, y, clip_denoised=True, return_pred=False, generator=None):
+        clip_denoised = False
         model_mean, _, model_logvar, pred_x_0 = self.p_cond_mean_var(
             denoise_fn, x_t, t, y, clip_denoised=clip_denoised, return_pred=True)
+        model_mean_test, *_ = self.p_cond_mean_var_noisy(
+            denoise_fn, x_t, t, y, clip_denoised=clip_denoised)
+        print(model_mean)
+        print(model_mean_test)
         noise = torch.empty_like(x_t).normal_(generator=generator)
         nonzero_mask = (t > 0).reshape((-1,) + (1,) * (x_t.ndim - 1)).to(x_t)
         sample = model_mean + nonzero_mask * torch.exp(0.5 * model_logvar) * noise
@@ -140,9 +145,7 @@ class ConditionalGaussianDiffusion(GaussianDiffusion):
             x_t = self.p_cond_sample_step(denoise_fn, x_t, t, y, generator=rng)
         return x_t
 
-    def p_cond_sample_noisy_step(self, denoise_fn, x_t, t, y, clip_denoised=False, return_pred=False, generator=None):
-        # model_mean, _, model_logvar, pred_x_0 = self.p_cond_mean_var(
-            # denoise_fn, x_t, t, y, clip_denoised=clip_denoised, return_pred=True)
+    def p_cond_mean_var_noisy(self, denoise_fn, x_t, t, y, clip_denoised):
         if clip_denoised:
             raise NotImplementedError(clip_denoised)
 
@@ -158,7 +161,6 @@ class ConditionalGaussianDiffusion(GaussianDiffusion):
             raise NotImplementedError(self.deg_type)
 
         # calculate the conditional mean estimate
-        _clip = (lambda x: x.clamp(-1., 1.)) if clip_denoised else (lambda x: x)
         if self.model_mean_type == "eps":
             # pred_x_0 = _clip(self._pred_x_0_from_eps(x_t=x_t, eps=out, t=t))
             # pred_x_0 = self.Hp(y) + pred_x_0 - self.Hp(self.H(pred_x_0))
@@ -171,10 +173,15 @@ class ConditionalGaussianDiffusion(GaussianDiffusion):
         else:
             raise NotImplementedError(self.model_mean_type)
 
+        return model_mean, model_var, model_logvar
+
+    def p_cond_sample_noisy_step(self, denoise_fn, x_t, t, y, clip_denoised=False, generator=None):
+        model_mean, _, model_logvar = self.p_cond_mean_var_noisy(
+            denoise_fn, x_t, t, y, clip_denoised=clip_denoised)
         noise = torch.empty_like(x_t).normal_(generator=generator)
         nonzero_mask = (t > 0).reshape((-1,) + (1,) * (x_t.ndim - 1)).to(x_t)
         sample = model_mean + nonzero_mask * torch.exp(0.5 * model_logvar) * noise
-        return (sample, pred_x_0) if return_pred else sample
+        return sample
 
     @torch.inference_mode()
     def p_cond_sample_noisy(self, denoise_fn, y, div=1, shape=None, device=torch.device("cpu"), noise=None, seed=None):
