@@ -30,9 +30,8 @@ def get_degradation_operator(deg_type, chan=3, res=32, device=torch.device("cpu"
         A = lambda z: color2gray(z)
         Ap = lambda z: gray2color(z)
     elif deg_type =='denoising':
-        raise NotImplementedError("denoising not yet supported")
-        # A = lambda z: z
-        # Ap = A
+        A = lambda z: z
+        Ap = A
     elif deg_type =='sr_averagepooling':
         raise NotImplementedError("sr not useful for CIFAR10")
         # scale=round(deg_type_scale)
@@ -64,13 +63,19 @@ def get_degradation_operator(deg_type, chan=3, res=32, device=torch.device("cpu"
 ###############################################
 
 class ConditionalGaussianDiffusion(GaussianDiffusion):
-    def __init__(self, betas, H, Hp, **diffusion_kwargs):
+    def __init__(self, betas, H, Hp, sigma_y, deg_type, **diffusion_kwargs):
         model_mean_type = diffusion_kwargs["model_mean_type"]
         model_var_type = diffusion_kwargs["model_var_type"]
         loss_type = diffusion_kwargs["loss_type"]
         assert(model_var_type in ["fixed-small", "fixed-large"])
         assert(model_mean_type == "eps")
         super().__init__(betas, **diffusion_kwargs)
+        self.deg_type = deg_type
+        self.alphas = 1 - self.betas
+        self.sqrt_recip_alphas = torch.sqrt(1. / self.alphas)
+        self.step_posterior_mean_coef1 = betas * self.sqrt_recip_alphas
+        self.step_posterior_mean_coef2 = betas * self.sqrt_recip_alphas / self.sqrt_one_minus_alphas_bar
+        self.one_minus_alphas_bar_plus_noise = 1. - self.alphas_bar + self.alphas_bar * sigma_y**2)
         self.H = H
         self.Hp = Hp
 
@@ -133,4 +138,57 @@ class ConditionalGaussianDiffusion(GaussianDiffusion):
         for ti in range(self.timesteps - div, -1, -div):
             t.fill_(ti)
             x_t = self.p_cond_sample_step(denoise_fn, x_t, t, y, generator=rng)
+        return x_t
+
+    def p_cond_sample_noisy_step(self, denoise_fn, x_t, t, y, clip_denoised=False, return_pred=False, generator=None):
+        # model_mean, _, model_logvar, pred_x_0 = self.p_cond_mean_var(
+            # denoise_fn, x_t, t, y, clip_denoised=clip_denoised, return_pred=True)
+        if clip_denoised:
+            raise NotImplementedError(clip_denoised)
+
+        out = denoise_fn(x_t, t)
+
+        if self.model_var_type in ["fixed-small", "fixed-large"]:
+            model_var, model_logvar = self._extract(self.fixed_model_var, t, x_t),\
+                                      self._extract(self.fixed_model_logvar, t, x_t)
+        else:
+            raise NotImplementedError(self.model_var_type)
+
+        if self.deg_type not in ["inpainting", "denoising"]:
+            raise NotImplementedError(self.deg_type)
+
+        # calculate the conditional mean estimate
+        _clip = (lambda x: x.clamp(-1., 1.)) if clip_denoised else (lambda x: x)
+        if self.model_mean_type == "eps":
+            # pred_x_0 = _clip(self._pred_x_0_from_eps(x_t=x_t, eps=out, t=t))
+            # pred_x_0 = self.Hp(y) + pred_x_0 - self.Hp(self.H(pred_x_0))
+            # model_mean, *_ = self.q_posterior_mean_var(x_0=pred_x_0, x_t=x_t, t=t)
+            coef1 = self._extract(self.sqrt_recip_alphas, t, x_t)
+            coef2 = self._extract(self.step_posterior_mean_coef2, t, x_t)
+            coef3 = self._extract(self.step_posterior_mean_coef1, t, x_t)
+            f_y = (self.sqrt_alphas_bar * self.Hp(y) - self.H(self.Hp(x_t))) / self.one_minus_alphas_bar_plus_noise
+            model_mean = coef1 * x_t - coef2 * (out - self.Hp(self.H(out))) + coef3 * f_y
+        else:
+            raise NotImplementedError(self.model_mean_type)
+
+        noise = torch.empty_like(x_t).normal_(generator=generator)
+        nonzero_mask = (t > 0).reshape((-1,) + (1,) * (x_t.ndim - 1)).to(x_t)
+        sample = model_mean + nonzero_mask * torch.exp(0.5 * model_logvar) * noise
+        return (sample, pred_x_0) if return_pred else sample
+
+    @torch.inference_mode()
+    def p_cond_sample_noisy(self, denoise_fn, y, div=1, shape=None, device=torch.device("cpu"), noise=None, seed=None):
+        B = (shape or noise.shape)[0]
+        t = torch.empty((B, ), dtype=torch.int64, device=device)
+        y = y.to(device)
+        rng = None
+        if seed is not None:
+            rng = torch.Generator(device).manual_seed(seed)
+        if noise is None:
+            x_t = torch.empty(shape, device=device).normal_(generator=rng)
+        else:
+            x_t = noise.to(device)
+        for ti in range(self.timesteps - div, -1, -div):
+            t.fill_(ti)
+            x_t = self.p_cond_sample_noisy_step(denoise_fn, x_t, t, y, generator=rng)
         return x_t
