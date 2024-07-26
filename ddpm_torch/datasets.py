@@ -243,6 +243,18 @@ class SubsetSequentialSampler(Sampler):
     def __len__(self):
         return len(self.indices)
 
+class AddGaussianNoise(object):
+    def __init__(self, mean=0., std=1.):
+        self.std = std
+        self.mean = mean
+        # self.seed = seed
+
+    def __call__(self, tensor):
+        return tensor + torch.randn(tensor.size()) * self.std + self.mean
+        # return tensor + torch.randn(tensor.size(), generator=torch.Generator().manual_seed(self.seed)) * self.std + self.mean
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
 
 def get_dataloader(
         dataset,
@@ -258,6 +270,7 @@ def get_dataloader(
         distributed=False,
         raw=False,
         cond_transform_fn=None,
+        sigma_y = 0.0,
         **kwargs
 ):
     assert isinstance(val_size, float) and 0 <= val_size < 1
@@ -268,6 +281,8 @@ def get_dataloader(
     transform = dataset_cls.transform if not raw else None
     if split == "test":
         transform.append(transforms.Lambda(cond_transform_fn))
+        if sigma_y > 0.:
+            transform.append(AddGaussianNoise(0., sigma_y))
         transform = transforms.Compose(transform)
     if distributed:
         batch_size = batch_size // int(os.environ.get("WORLD_SIZE", "1"))
