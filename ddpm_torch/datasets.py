@@ -269,21 +269,22 @@ def get_dataloader(
         num_workers=0,
         distributed=False,
         raw=False,
-        cond_transform_fn=None,
-        sigma_y = 0.0,
+        # cond_transform_fn=None,
+        # sigma_y = 0.0,
         **kwargs
 ):
     assert isinstance(val_size, float) and 0 <= val_size < 1
 
-    dataset_name = dataset + "_cond_test" if split == "test" else dataset
+    # dataset_name = dataset + "_cond_test" if split == "test" else dataset
+    dataset_name = dataset
     dataset_cls = DATASET_DICT[dataset_name]
     dataset_info = DATASET_INFO[dataset_name]
     transform = dataset_cls.transform if not raw else None
-    if split == "test":
-        transform.append(transforms.Lambda(cond_transform_fn))
-        if sigma_y > 0.:
-            transform.append(AddGaussianNoise(0., sigma_y))
-        transform = transforms.Compose(transform)
+    # if split == "test":
+    #     transform.append(transforms.Lambda(cond_transform_fn))
+    #     if sigma_y > 0.:
+    #         transform.append(AddGaussianNoise(0., sigma_y))
+    #     transform = transforms.Compose(transform)
     if distributed:
         batch_size = batch_size // int(os.environ.get("WORLD_SIZE", "1"))
     dataset_kwargs = {"root": root, "split": split, "transform": transform, "download": download}

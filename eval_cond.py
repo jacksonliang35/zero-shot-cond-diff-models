@@ -111,7 +111,7 @@ if __name__ == "__main__":
         running_loss = 0.
         for x, x0 in tqdm(zip(imageloader, yloader), total=len(imageloader)):
             running_loss += torch.sum(torch.mean((x-x0).pow(2), dim=[1,2,3]))
-        return running_loss[0] / eval_total_size
+        return running_loss.item() / eval_total_size
     print("MSE:", eval_mse())
 
     # SSIM
@@ -121,7 +121,7 @@ if __name__ == "__main__":
         running_loss = 0.
         for x, x0 in tqdm(zip(imageloader, yloader), total=len(imageloader)):
             running_loss += ssim(x.to(input_device),x0.to(input_device))
-        return running_loss.detach().cpu()[0] / eval_total_size
+        return running_loss.detach().cpu().item() / eval_total_size
     print("SSIM:", eval_ssim())
 
     # LPIPS
@@ -133,5 +133,5 @@ if __name__ == "__main__":
         running_loss = 0.
         for x, x0 in tqdm(zip(imageloader, yloader), total=len(imageloader)):
             running_loss += torch.sum(lpips(x.to(input_device), x0.to(input_device)))
-        return running_loss.detach().cpu()[0] / eval_total_size
+        return running_loss.detach().cpu().item() / eval_total_size
     print("LPIPS:", eval_lpips())

@@ -25,7 +25,8 @@ def gray2color(x):
 
 def get_degradation_operator(deg_type, chan=3, res=32, device=torch.device("cpu")):
     # get degradation operator
-    print("deg_type:",deg_type)
+    if device != torch.device("cpu"):
+        print("deg_type:",deg_type)
     if deg_type =='colorization':
         A = lambda z: color2gray(z)
         Ap = lambda z: gray2color(z)
@@ -63,7 +64,7 @@ def get_degradation_operator(deg_type, chan=3, res=32, device=torch.device("cpu"
 ###############################################
 
 class ConditionalGaussianDiffusion(GaussianDiffusion):
-    def __init__(self, betas, H, Hp, sigma_y, deg_type, **diffusion_kwargs):
+    def __init__(self, betas, H, Hp, deg_type, **diffusion_kwargs):
         model_mean_type = diffusion_kwargs["model_mean_type"]
         model_var_type = diffusion_kwargs["model_var_type"]
         loss_type = diffusion_kwargs["loss_type"]
@@ -73,9 +74,7 @@ class ConditionalGaussianDiffusion(GaussianDiffusion):
         self.deg_type = deg_type
         self.alphas = 1 - self.betas
         self.sqrt_recip_alphas = torch.sqrt(1. / self.alphas)
-        self.step_posterior_mean_coef1 = betas * self.sqrt_recip_alphas
         self.step_posterior_mean_coef2 = betas * self.sqrt_recip_alphas / self.sqrt_one_minus_alphas_bar
-        self.one_minus_alphas_bar_plus_noise = 1. - self.alphas_bar + self.alphas_bar * sigma_y**2)
         self.H = H
         self.Hp = Hp
 
@@ -116,13 +115,11 @@ class ConditionalGaussianDiffusion(GaussianDiffusion):
             return model_mean, model_var, model_logvar
 
     def p_cond_sample_step(self, denoise_fn, x_t, t, y, clip_denoised=True, return_pred=False, generator=None):
-        clip_denoised = False
         model_mean, _, model_logvar, pred_x_0 = self.p_cond_mean_var(
             denoise_fn, x_t, t, y, clip_denoised=clip_denoised, return_pred=True)
-        model_mean_test, *_ = self.p_cond_mean_var_noisy(
-            denoise_fn, x_t, t, y, clip_denoised=clip_denoised)
-        print(model_mean)
-        print(model_mean_test)
+        #model_mean_test, *_ = self.p_cond_mean_var_noisy(
+        #    denoise_fn, x_t, t, y, 0., clip_denoised=False)
+        #print((model_mean - model_mean_test)[0])
         noise = torch.empty_like(x_t).normal_(generator=generator)
         nonzero_mask = (t > 0).reshape((-1,) + (1,) * (x_t.ndim - 1)).to(x_t)
         sample = model_mean + nonzero_mask * torch.exp(0.5 * model_logvar) * noise
@@ -145,7 +142,7 @@ class ConditionalGaussianDiffusion(GaussianDiffusion):
             x_t = self.p_cond_sample_step(denoise_fn, x_t, t, y, generator=rng)
         return x_t
 
-    def p_cond_mean_var_noisy(self, denoise_fn, x_t, t, y, clip_denoised):
+    def p_cond_mean_var_noisy(self, denoise_fn, x_t, t, y, sigma_y, clip_denoised):
         if clip_denoised:
             raise NotImplementedError(clip_denoised)
 
@@ -167,24 +164,25 @@ class ConditionalGaussianDiffusion(GaussianDiffusion):
             # model_mean, *_ = self.q_posterior_mean_var(x_0=pred_x_0, x_t=x_t, t=t)
             coef1 = self._extract(self.sqrt_recip_alphas, t, x_t)
             coef2 = self._extract(self.step_posterior_mean_coef2, t, x_t)
-            coef3 = self._extract(self.step_posterior_mean_coef1, t, x_t)
-            f_y = (self.sqrt_alphas_bar * self.Hp(y) - self.H(self.Hp(x_t))) / self.one_minus_alphas_bar_plus_noise
+            coef3 = self._extract(self.betas * self.sqrt_recip_alphas / (1. - self.alphas_bar + self.alphas_bar * sigma_y**2), t, x_t)
+            sqrt_alphas_bar = self._extract(self.sqrt_alphas_bar, t, x_t)
+            f_y = sqrt_alphas_bar * self.Hp(y) - self.H(self.Hp(x_t))
             model_mean = coef1 * x_t - coef2 * (out - self.Hp(self.H(out))) + coef3 * f_y
         else:
             raise NotImplementedError(self.model_mean_type)
 
         return model_mean, model_var, model_logvar
 
-    def p_cond_sample_noisy_step(self, denoise_fn, x_t, t, y, clip_denoised=False, generator=None):
+    def p_cond_sample_noisy_step(self, denoise_fn, x_t, t, y, sigma_y, clip_denoised=False, generator=None):
         model_mean, _, model_logvar = self.p_cond_mean_var_noisy(
-            denoise_fn, x_t, t, y, clip_denoised=clip_denoised)
+            denoise_fn, x_t, t, y, sigma_y, clip_denoised=clip_denoised)
         noise = torch.empty_like(x_t).normal_(generator=generator)
         nonzero_mask = (t > 0).reshape((-1,) + (1,) * (x_t.ndim - 1)).to(x_t)
         sample = model_mean + nonzero_mask * torch.exp(0.5 * model_logvar) * noise
         return sample
 
     @torch.inference_mode()
-    def p_cond_sample_noisy(self, denoise_fn, y, div=1, shape=None, device=torch.device("cpu"), noise=None, seed=None):
+    def p_cond_sample_noisy(self, denoise_fn, y, sigma_y, div=1, shape=None, device=torch.device("cpu"), noise=None, seed=None):
         B = (shape or noise.shape)[0]
         t = torch.empty((B, ), dtype=torch.int64, device=device)
         y = y.to(device)
@@ -197,5 +195,5 @@ class ConditionalGaussianDiffusion(GaussianDiffusion):
             x_t = noise.to(device)
         for ti in range(self.timesteps - div, -1, -div):
             t.fill_(ti)
-            x_t = self.p_cond_sample_noisy_step(denoise_fn, x_t, t, y, generator=rng)
+            x_t = self.p_cond_sample_noisy_step(denoise_fn, x_t, t, y, sigma_y, generator=rng)
         return x_t

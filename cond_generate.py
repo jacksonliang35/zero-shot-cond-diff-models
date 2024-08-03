@@ -60,7 +60,7 @@ def generate(rank, args, counter=0):
         # subsequence = get_selection_schedule(skip_schedule, size=subseq_size, timesteps=num_diffusion_timesteps)
         # diffusion = DDIM(betas, **diffusion_kwargs, eta=eta, subsequence=subsequence)
     else:
-        diffusion = ConditionalGaussianDiffusion(betas, H, Hp, **diffusion_kwargs)
+        diffusion = ConditionalGaussianDiffusion(betas, H, Hp, args.deg, **diffusion_kwargs)
 
     block_size = meta_config["model"].pop("block_size", 1)
     model = UNet(out_channels=in_channels, **meta_config["model"])
@@ -106,15 +106,17 @@ def generate(rank, args, counter=0):
     num_workers = args.num_workers
     testloader, _ = get_dataloader(
         dataset, batch_size=args.batch_size, split="test", download=True,
-        root="~/datasets", drop_last=False, pin_memory=True, num_workers=num_workers, distributed=False,
-        cond_transform_fn = Hcpu
+        root="~/datasets", drop_last=False, pin_memory=True, num_workers=num_workers, distributed=False
     )  # drop_last to have a static input shape; num_workers > 0 to enable asynchronous data loading
 
     folder_name = folder_name + args.suffix
-    save_dir = os.path.join(args.save_dir, "eval", exp_name, folder_name)
-    if is_leader and not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-
+    save_dir_1 = os.path.join(args.save_dir, "eval_novar", exp_name, folder_name)
+    save_dir_2 = os.path.join(args.save_dir, "eval_var", exp_name, folder_name)
+    if is_leader and not os.path.exists(save_dir_1):
+        os.makedirs(save_dir_1)
+    if is_leader and not os.path.exists(save_dir_2) and args.sigma_y > 0.:
+        os.makedirs(save_dir_2)
+    
     local_total_size = args.local_total_size
     batch_size = args.batch_size
     if args.world_size > 1:
@@ -131,23 +133,29 @@ def generate(rank, args, counter=0):
         torch.backends.cudnn.benchmark = True  # noqa
 
     # One generated image from each test sample
-    if args.save_y:
+    if not args.no_save_x0:
         save_y_dir = os.path.join(args.save_dir, "y_eval", exp_name, folder_name)
         if is_leader and not os.path.exists(save_y_dir):
             os.makedirs(save_y_dir)
     assert(args.div > 0)
-    for i, y in tqdm(enumerate(testloader), total=local_num_batches):
-        if isinstance(y, (list, tuple)):
-            y = y[0]  # discard classification labels
+    for i, x_orig in tqdm(enumerate(testloader), total=local_num_batches):
+        if isinstance(x_orig, (list, tuple)):
+            x_orig = x_orig[0]  # discard classification labels
         if i == local_num_batches - 1:
             shape = (local_total_size - i * batch_size, 3, image_res, image_res)
-        x = diffusion.p_cond_sample(model, y, div=args.div, shape=shape, device=device, noise=torch.randn(shape, device=device)).cpu()
-        x = (x * 127.5 + 127.5).round().clamp(0, 255).to(torch.uint8).permute(0, 2, 3, 1).numpy()
-        x0 = (y * 127.5 + 127.5).round().clamp(0, 255).to(torch.uint8).permute(0, 2, 3, 1).numpy()
+        y = Hcpu(x_orig + torch.randn(x_orig.size()) * args.sigma_y)
+        x1 = diffusion.p_cond_sample_noisy(model, y, 0., div=args.div, shape=shape, device=device, noise=torch.randn(shape, device=device)).cpu()
+        x1 = (x1 * 127.5 + 127.5).round().clamp(0, 255).to(torch.uint8).permute(0, 2, 3, 1).numpy()
+        if args.sigma_y > 0.:
+            x2 = diffusion.p_cond_sample_noisy(model, y, args.sigma_y, div=args.div, shape=shape, device=device, noise=torch.randn(shape, device=device)).cpu()
+            x2 = (x2 * 127.5 + 127.5).round().clamp(0, 255).to(torch.uint8).permute(0, 2, 3, 1).numpy()
+        x0 = (x_orig * 127.5 + 127.5).round().clamp(0, 255).to(torch.uint8).permute(0, 2, 3, 1).numpy()
         for j in range(shape[0]):
             iid = uuid.uuid4()
-            Image.fromarray(x[j], mode="RGB").save(f"{save_dir}/{iid}.png")
-            if args.save_y:
+            Image.fromarray(x1[j], mode="RGB").save(f"{save_dir_1}/{iid}.png")
+            if args.sigma_y > 0.:
+                Image.fromarray(x2[j], mode="RGB").save(f"{save_dir_2}/{iid}.png")
+            if not args.no_save_x0:
                 Image.fromarray(x0[j], mode="RGB").save(f"{save_y_dir}/{iid}.png")
 
     # pbar = None
@@ -178,13 +186,14 @@ def main():
     parser.add_argument("--chkpt-dir", default="./chkpts", type=str)
     parser.add_argument("--chkpt-path", default="", type=str)
     parser.add_argument("--save-dir", default="./images", type=str)
-    parser.add_argument("--save-y", action="store_true")
+    parser.add_argument("--no-save-x0", action="store_true")
     parser.add_argument("--device", default="cuda:0", type=str)
     parser.add_argument("--use-ema", action="store_true")
     parser.add_argument("--use-ddim", action="store_true")
     parser.add_argument("--eta", default=0., type=float)
-    parser.add_argument("--deg", choices=["colorization", "inpainting"], default="inpainting", type=str, help="type of degradation")
+    parser.add_argument("--deg", choices=["colorization", "denoising", "inpainting"], default="inpainting", type=str, help="type of degradation")
     parser.add_argument("--div", default=1, type=int)
+    parser.add_argument("--sigma-y", default=0., type=float)
     parser.add_argument("--skip-schedule", default="linear", type=str)
     parser.add_argument("--subseq-size", default=50, type=int)
     parser.add_argument("--suffix", default="_cond", type=str)
