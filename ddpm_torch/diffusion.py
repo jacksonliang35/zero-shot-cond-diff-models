@@ -72,6 +72,11 @@ class GaussianDiffusion:
         self.posterior_mean_coef1 = betas * sqrt_alphas_bar_prev / (1. - self.alphas_bar)
         self.posterior_mean_coef2 = torch.sqrt(alphas) * (1. - alphas_bar_prev) / (1. - self.alphas_bar)
 
+        # Added coefficients
+        self.step_posterior_mean_coef2 = betas * self.sqrt_recip_alphas / self.sqrt_one_minus_alphas_bar
+        self.alphas = 1 - self.betas
+        self.sqrt_recip_alphas = torch.sqrt(1. / self.alphas)
+
         # for fixed model_var_type's
         self.fixed_model_var, self.fixed_model_logvar = {
             "fixed-large": (self.betas, torch.log(torch.cat([self.posterior_var[[1]], self.betas[1:]]))),
@@ -202,6 +207,82 @@ class GaussianDiffusion:
                 idx -= 1
                 preds[idx] = pred.cpu()
         return x_t.cpu(), preds
+
+    # === sample without x_0, accelerated ===
+
+    # def p_cond_mean_var_accl(self, denoise_fn, x_t, t, clip_denoised=False):
+    #     if clip_denoised:
+    #         raise NotImplementedError(clip_denoised)
+    #
+    #     out = denoise_fn(x_t, t)
+    #
+    #     if self.model_var_type in ["fixed-small", "fixed-large"]:
+    #         model_var, model_logvar = self._extract(self.fixed_model_var, t, x_t),\
+    #                                   self._extract(self.fixed_model_logvar, t, x_t)
+    #     else:
+    #         raise NotImplementedError(self.model_var_type)
+    #
+    #     # calculate the conditional mean estimate
+    #     if self.model_mean_type == "eps":
+    #         # pred_x_0 = _clip(self._pred_x_0_from_eps(x_t=x_t, eps=out, t=t))
+    #         # pred_x_0 = self.Hp(y) + pred_x_0 - self.Hp(self.H(pred_x_0))
+    #         # model_mean, *_ = self.q_posterior_mean_var(x_0=pred_x_0, x_t=x_t, t=t)
+    #         coef1 = self._extract(self.sqrt_recip_alphas, t, x_t)
+    #         coef2 = self._extract(self.step_posterior_mean_coef2, t, x_t)
+    #         model_mean = coef1 * x_t - coef2 * out
+    #     else:
+    #         raise NotImplementedError(self.model_mean_type)
+    #
+    #     return model_mean, model_var, model_logvar
+
+    def p_sample_accl_step(self, denoise_fn, x_t, t, clip_denoised=False, generator=None):
+        if clip_denoised:
+            raise NotImplementedError(clip_denoised)
+
+        out = denoise_fn(x_t, t)
+        B, C, H, W = x_t.shape
+
+        # calculate the conditional mean estimate
+        if self.model_mean_type == "eps":
+            # pred_x_0 = _clip(self._pred_x_0_from_eps(x_t=x_t, eps=out, t=t))
+            # pred_x_0 = self.Hp(y) + pred_x_0 - self.Hp(self.H(pred_x_0))
+            # model_mean, *_ = self.q_posterior_mean_var(x_0=pred_x_0, x_t=x_t, t=t)
+            coef1 = self._extract(self.sqrt_recip_alphas, t, x_t)
+            coef2 = self._extract(self.step_posterior_mean_coef2, t, x_t)
+            model_mean = coef1 * x_t - coef2 * out
+        else:
+            raise NotImplementedError(self.model_mean_type)
+
+        # calculate Hessian + noise
+        if self.model_var_type in ["fixed-small", "fixed-large"]:
+            model_var, model_logvar = self._extract(self.fixed_model_var, t, x_t),\
+                                      self._extract(self.fixed_model_logvar, t, x_t)
+        else:
+            raise NotImplementedError(self.model_var_type)
+        noise = torch.empty_like(x_t).normal_(generator=generator)
+        x_t_copy = x_t.detach().clone().requires_grad_(True)
+        grad = torch.autograd.functional.jvp(lambda xx: out(xx, t), x_t_copy, v=noise, create_graph=True)[1]
+        model_noise = torch.exp(0.5 * model_logvar) * (noise + .5 * self._extract(self.betas, t, x_t) * grad)
+
+        nonzero_mask = (t > 0).reshape((-1,) + (1,) * (x_t.ndim - 1)).to(x_t)
+        sample = model_mean + nonzero_mask * model_noise
+        return sample
+
+    @torch.inference_mode()
+    def p_sample_accl(self, denoise_fn, shape=None, device=torch.device("cpu"), noise=None, seed=None):
+        B = (shape or noise.shape)[0]
+        t = torch.empty((B, ), dtype=torch.int64, device=device)
+        rng = None
+        if seed is not None:
+            rng = torch.Generator(device).manual_seed(seed)
+        if noise is None:
+            x_t = torch.empty(shape, device=device).normal_(generator=rng)
+        else:
+            x_t = noise.to(device)
+        for ti in range(self.timesteps - 1, -1, -1):
+            t.fill_(ti)
+            x_t = self.p_cond_sample_accl_step(denoise_fn, x_t, t, generator=rng)
+        return x_t
 
     # === log likelihood ===
     # bpd: bits per dimension

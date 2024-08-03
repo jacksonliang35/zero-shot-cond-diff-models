@@ -72,9 +72,6 @@ class ConditionalGaussianDiffusion(GaussianDiffusion):
         assert(model_mean_type == "eps")
         super().__init__(betas, **diffusion_kwargs)
         self.deg_type = deg_type
-        self.alphas = 1 - self.betas
-        self.sqrt_recip_alphas = torch.sqrt(1. / self.alphas)
-        self.step_posterior_mean_coef2 = betas * self.sqrt_recip_alphas / self.sqrt_one_minus_alphas_bar
         self.H = H
         self.Hp = Hp
 
