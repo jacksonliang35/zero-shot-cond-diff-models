@@ -237,7 +237,7 @@ for i, n in enumerate(n_value):
         start_time = time.time()
         X = calc_samples(dist0, alpha_t, Nkern)
         comp1[i] = time.time() - start_time
-        print("Sec for reg:", comp_temp)
+        print("Sec for reg:", comp1[i])
         print("Estimating KL for n =", n)
         kl1[i] = calc_kl_from_mix_samp(dist0, X, Nkern)
         if kl1[i] == 0.:
@@ -250,7 +250,7 @@ for i, n in enumerate(n_value):
         start_time = time.time()
         X = calc_samples_accl(dist0, alpha_t, Nkern)
         comp2[i] = time.time() - start_time
-        print("Sec for accl:", comp_temp)
+        print("Sec for accl:", comp2[i])
         print("Estimating KL accl for n =", n)
         kl2[i] = calc_kl_from_mix_samp(dist0, X, Nkern)
         if kl2[i] == 0.:
@@ -263,7 +263,7 @@ for i, n in enumerate(n_value):
         start_time = time.time()
         X = calc_samples_accl_genli(dist0, alpha_t, Nkern)
         comp3[i] = time.time() - start_time
-        print("Sec for accl genli:", comp_temp)
+        print("Sec for accl genli:", comp3[i])
         print("Estimating KL accl genli for n =", n)
         kl3[i] = calc_kl_from_mix_samp(dist0, X, Nkern)
         if kl3[i] == 0.:
