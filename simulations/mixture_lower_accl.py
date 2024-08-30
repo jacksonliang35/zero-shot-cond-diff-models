@@ -5,7 +5,7 @@ from scipy.integrate import nquad
 from sklearn.mixture import GaussianMixture
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-import time
+import time, os, sys
 
 N = 4
 d = 4
@@ -19,7 +19,11 @@ n_value = np.array([20,50,100,200,500,1000])
 # n_value = np.array([100,500,1000,2000,5000])
 
 SEED = 100
-MULT = 10
+FILE_NUM = str(int(sys.argv[-1]))
+FOLDER = FILE_NUM + "/"
+
+if not os.path.exists(FOLDER):
+    os.mkdir(FOLDER)
 
 np.random.seed(SEED)
 
@@ -227,48 +231,47 @@ for i, n in tqdm(enumerate(n_value), total=len(n_value)):
     #     X = calc_samples_accl(dist0, alpha_t, Nkern)
     #     kl2[i] = calc_kl_from_mix_samp(dist0, X, Nkern)
 
-    for m in range(MULT):
-        while True:
-            # np.random.seed(seed_t)
-            start_time = time.time()
-            X = calc_samples(dist0, alpha_t, Nkern)
-            comp_temp = time.time() - start_time
-            print("Sec for reg:", comp_temp)
-            print("Estimating KL for n =", n)
-            kl_temp = calc_kl_from_mix_samp(dist0, X, Nkern)
-            if kl_temp == 0.:
-                continue
-            kl1[i] += kl_temp
-            comp1[i] += comp_temp
-            break
+    while True:
+        # np.random.seed(seed_t)
+        start_time = time.time()
+        X = calc_samples(dist0, alpha_t, Nkern)
+        comp_temp = time.time() - start_time
+        print("Sec for reg:", comp_temp)
+        print("Estimating KL for n =", n)
+        kl_temp = calc_kl_from_mix_samp(dist0, X, Nkern)
+        if kl_temp == 0.:
+            continue
+        kl1[i] += kl_temp
+        comp1[i] += comp_temp
+        break
 
-        while True:
-            # np.random.seed(seed_t)
-            start_time = time.time()
-            X = calc_samples_accl(dist0, alpha_t, Nkern)
-            comp_temp = time.time() - start_time
-            print("Sec for accl:", comp_temp)
-            print("Estimating KL accl for n =", n)
-            kl_temp = calc_kl_from_mix_samp(dist0, X, Nkern)
-            if kl_temp == 0.:
-                continue
-            kl2[i] += kl_temp
-            comp2[i] += comp_temp
-            break
+    while True:
+        # np.random.seed(seed_t)
+        start_time = time.time()
+        X = calc_samples_accl(dist0, alpha_t, Nkern)
+        comp_temp = time.time() - start_time
+        print("Sec for accl:", comp_temp)
+        print("Estimating KL accl for n =", n)
+        kl_temp = calc_kl_from_mix_samp(dist0, X, Nkern)
+        if kl_temp == 0.:
+            continue
+        kl2[i] += kl_temp
+        comp2[i] += comp_temp
+        break
 
-        while True:
-            # np.random.seed(seed_t)
-            start_time = time.time()
-            X = calc_samples_accl_genli(dist0, alpha_t, Nkern)
-            comp_temp = time.time() - start_time
-            print("Sec for accl genli:", comp_temp)
-            print("Estimating KL accl genli for n =", n)
-            kl_temp = calc_kl_from_mix_samp(dist0, X, Nkern)
-            if kl_temp == 0.:
-                continue
-            kl3[i] += kl_temp
-            comp3[i] += comp_temp
-            break
+    while True:
+        # np.random.seed(seed_t)
+        start_time = time.time()
+        X = calc_samples_accl_genli(dist0, alpha_t, Nkern)
+        comp_temp = time.time() - start_time
+        print("Sec for accl genli:", comp_temp)
+        print("Estimating KL accl genli for n =", n)
+        kl_temp = calc_kl_from_mix_samp(dist0, X, Nkern)
+        if kl_temp == 0.:
+            continue
+        kl3[i] += kl_temp
+        comp3[i] += comp_temp
+        break
 
     kl1[i] /= MULT
     kl2[i] /= MULT
@@ -280,12 +283,12 @@ for i, n in tqdm(enumerate(n_value), total=len(n_value)):
     print(kl1[i], kl2[i], kl3[i])
 
 
-np.save("kl_mixture_reg.npy", kl1)
-np.save("kl_mixture_reg_comp.npy", comp1)
-np.save("kl_mixture_accl.npy", kl2)
-np.save("kl_mixture_accl_comp.npy", comp2)
-np.save("kl_mixture_accl_genli.npy", kl3)
-np.save("kl_mixture_accl_genli_comp.npy", comp3)
+np.save(FOLDER + "kl_mixture_reg.npy", kl1)
+np.save(FOLDER + "kl_mixture_reg_comp.npy", comp1)
+np.save(FOLDER + "kl_mixture_accl.npy", kl2)
+np.save(FOLDER + "kl_mixture_accl_comp.npy", comp2)
+np.save(FOLDER + "kl_mixture_accl_genli.npy", kl3)
+np.save(FOLDER + "kl_mixture_accl_genli_comp.npy", comp3)
 # print(kl)
 
 ## Plots
