@@ -191,7 +191,8 @@ dist0 = Mixture(mu_0, var_0, pi_0)
 
 np.random.seed(None)
 
-for i, n in tqdm(enumerate(n_value), total=len(n_value)):
+# for i, n in tqdm(enumerate(n_value), total=len(n_value)):
+for i, n in enumerate(n_value):
     print("")
     # x,y = np.mgrid[-10:10:.1, -10:10:.1]
     # plt.contourf(x, y, dist0.pdf(np.dstack((x,y))))
@@ -235,53 +236,40 @@ for i, n in tqdm(enumerate(n_value), total=len(n_value)):
         # np.random.seed(seed_t)
         start_time = time.time()
         X = calc_samples(dist0, alpha_t, Nkern)
-        comp_temp = time.time() - start_time
+        comp1[i] = time.time() - start_time
         print("Sec for reg:", comp_temp)
         print("Estimating KL for n =", n)
-        kl_temp = calc_kl_from_mix_samp(dist0, X, Nkern)
-        if kl_temp == 0.:
+        kl1[i] = calc_kl_from_mix_samp(dist0, X, Nkern)
+        if kl1[i] == 0.:
             continue
-        kl1[i] += kl_temp
-        comp1[i] += comp_temp
         break
+    print(kl1[i])
 
     while True:
         # np.random.seed(seed_t)
         start_time = time.time()
         X = calc_samples_accl(dist0, alpha_t, Nkern)
-        comp_temp = time.time() - start_time
+        comp2[i] = time.time() - start_time
         print("Sec for accl:", comp_temp)
         print("Estimating KL accl for n =", n)
-        kl_temp = calc_kl_from_mix_samp(dist0, X, Nkern)
-        if kl_temp == 0.:
+        kl2[i] = calc_kl_from_mix_samp(dist0, X, Nkern)
+        if kl2[i] == 0.:
             continue
-        kl2[i] += kl_temp
-        comp2[i] += comp_temp
         break
+    print(kl2[i])
 
     while True:
         # np.random.seed(seed_t)
         start_time = time.time()
         X = calc_samples_accl_genli(dist0, alpha_t, Nkern)
-        comp_temp = time.time() - start_time
+        comp3[i] = time.time() - start_time
         print("Sec for accl genli:", comp_temp)
         print("Estimating KL accl genli for n =", n)
-        kl_temp = calc_kl_from_mix_samp(dist0, X, Nkern)
-        if kl_temp == 0.:
+        kl3[i] = calc_kl_from_mix_samp(dist0, X, Nkern)
+        if kl3[i] == 0.:
             continue
-        kl3[i] += kl_temp
-        comp3[i] += comp_temp
         break
-
-    kl1[i] /= MULT
-    kl2[i] /= MULT
-    kl3[i] /= MULT
-    comp1[i] /= MULT
-    comp2[i] /= MULT
-    comp3[i] /= MULT
-
-    print(kl1[i], kl2[i], kl3[i])
-
+    print(kl3[i])
 
 np.save(FOLDER + "kl_mixture_reg.npy", kl1)
 np.save(FOLDER + "kl_mixture_reg_comp.npy", comp1)
