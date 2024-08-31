@@ -12,6 +12,8 @@ comp3 = np.zeros(n_value.shape)
 
 n = 0
 for p in glob.glob("*/"):
+    if p == 'out/':
+        continue
     n += 1
     kl1 += np.load(p + "kl_mixture_reg.npy")
     comp1 += np.load(p + "kl_mixture_reg_comp.npy")
