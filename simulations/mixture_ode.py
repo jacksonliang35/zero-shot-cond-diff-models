@@ -145,6 +145,19 @@ def calc_samples_ode(dist0, alpha_t, S=10000):
     # print("")
     return X
 
+def calc_samples_ddim(dist0, alpha_t, S=10000):
+    # Note: alpha_t[i] = \alpha_{i+1}, alpha_t_bar[i] = \bar{\alpha}_{i+1}
+    assert(alpha_t[0] > 0)
+    alpha_t_bar = np.cumprod(alpha_t)
+    X = np.random.normal(size=(S,d))
+    for t in range(len(alpha_t)-1,0,-1):
+        eps = - np.sqrt(1 - alpha_t_bar[t]) * dist0.score(X, alpha_t_bar[t])
+        X0 = (X - np.sqrt(1 - alpha_t_bar[t]) * eps) / np.sqrt(alpha_t_bar[t])
+        X = np.sqrt(alpha_t_bar[t-1]) * X0 + np.sqrt(1 - alpha_t_bar[t-1]) * eps
+    X = (X + (1-alpha_t[0]) * dist0.score(X, alpha_t_bar[0])) / np.sqrt(alpha_t[0]) + np.sqrt((1-alpha_t[0]) / alpha_t[0])* np.random.normal(size=(S,d))
+    # print("")
+    return X
+
 def calc_samples_accl(dist0, alpha_t, S=10000):
     # Note: alpha_t[i] = \alpha_{i+1}, alpha_t_bar[i] = \bar{\alpha}_{i+1}
     assert(alpha_t[0] > 0)
@@ -236,21 +249,12 @@ for i, n in enumerate(n_value):
     # print(gm.covariances_)
     # print("")
 
-    # while kl1[i] == 0.:
-    #     print("Estimating KL for n =", n)
-    #     X = calc_samples(dist0, alpha_t, Nkern)
-    #     kl1[i] = calc_kl_from_mix_samp(dist0, X, Nkern)
-    # while kl2[i] == 0.:
-    #     print("Estimating KL accl for n =", n)
-    #     X = calc_samples_accl(dist0, alpha_t, Nkern)
-    #     kl2[i] = calc_kl_from_mix_samp(dist0, X, Nkern)
-
     while True:
         # np.random.seed(seed_t)
         start_time = time.time()
-        X = calc_samples_ode(dist0, alpha_t, Nkern)
+        X = calc_samples_ddim(dist0, alpha_t, Nkern)
         comp1[i] = time.time() - start_time
-        print("Sec for ode:", comp1[i])
+        print("Sec for ddim:", comp1[i])
         print("Estimating KL for n =", n)
         kl1[i] = calc_kl_from_mix_samp(dist0, X, Nkern)
         if kl1[i] == 0.:
@@ -258,34 +262,8 @@ for i, n in enumerate(n_value):
         break
     print(kl1[i])
 
-    # while True:
-    #     # np.random.seed(seed_t)
-    #     start_time = time.time()
-    #     X = calc_samples_accl(dist0, alpha_t, Nkern)
-    #     comp2[i] = time.time() - start_time
-    #     print("Sec for accl:", comp2[i])
-    #     print("Estimating KL accl for n =", n)
-    #     kl2[i] = calc_kl_from_mix_samp(dist0, X, Nkern)
-    #     if kl2[i] == 0.:
-    #         continue
-    #     break
-    # print(kl2[i])
-    #
-    # while True:
-    #     # np.random.seed(seed_t)
-    #     start_time = time.time()
-    #     X = calc_samples_accl_genli(dist0, alpha_t, Nkern)
-    #     comp3[i] = time.time() - start_time
-    #     print("Sec for accl genli:", comp3[i])
-    #     print("Estimating KL accl genli for n =", n)
-    #     kl3[i] = calc_kl_from_mix_samp(dist0, X, Nkern)
-    #     if kl3[i] == 0.:
-    #         continue
-    #     break
-    # print(kl3[i])
-
-np.save(FOLDER + "kl_mixture_ode.npy", kl1)
-np.save(FOLDER + "kl_mixture_ode_comp.npy", comp1)
+np.save(FOLDER + "kl_mixture_ddim.npy", kl1)
+np.save(FOLDER + "kl_mixture_ddim_comp.npy", comp1)
 # np.save(FOLDER + "kl_mixture_accl.npy", kl2)
 # np.save(FOLDER + "kl_mixture_accl_comp.npy", comp2)
 # np.save(FOLDER + "kl_mixture_accl_genli.npy", kl3)
