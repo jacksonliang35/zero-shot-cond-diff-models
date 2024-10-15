@@ -152,7 +152,7 @@ def generate(rank, args, counter=0):
         if args.sigma_y > 0.:
             x2 = diffusion.p_cond_sample_noisy(model, y, args.sigma_y, div=args.div, shape=shape, device=device, noise=torch.randn(shape, device=device)).cpu()
             x2 = (x2 * 127.5 + 127.5).round().clamp(0, 255).to(torch.uint8).permute(0, 2, 3, 1).numpy()
-        x0 = (x_orig * 127.5 + 127.5).round().clamp(0, 255).to(torch.uint8).permute(0, 2, 3, 1).numpy()
+        x0 = (y * 127.5 + 127.5).round().clamp(0, 255).to(torch.uint8).permute(0, 2, 3, 1).numpy()
         for j in range(shape[0]):
             iid = uuid.uuid4()
             Image.fromarray(x1[j], mode="RGB").save(f"{save_dir_1}/{iid}.png")
