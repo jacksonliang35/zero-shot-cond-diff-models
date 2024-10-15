@@ -139,6 +139,8 @@ def generate(rank, args, counter=0):
             os.makedirs(save_y_dir)
     assert(args.div > 0)
     for i, x_orig in tqdm(enumerate(testloader), total=local_num_batches):
+        if i > local_num_batches - 1:
+            break
         if isinstance(x_orig, (list, tuple)):
             x_orig = x_orig[0]  # discard classification labels
         if i == local_num_batches - 1:
@@ -158,8 +160,6 @@ def generate(rank, args, counter=0):
                 Image.fromarray(x2[j], mode="RGB").save(f"{save_dir_2}/{iid}.png")
             if not args.no_save_y:
                 Image.fromarray(x0[j], mode="RGB").save(f"{save_y_dir}/{iid}.png")
-        if i == local_num_batches - 1:
-            break
 
     # pbar = None
     # if isinstance(counter, int):
