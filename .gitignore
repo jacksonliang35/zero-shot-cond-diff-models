@@ -12,3 +12,6 @@ images
 chkpt
 chkpts
 assets
+
+generate_accl.py
+train_toy.py
