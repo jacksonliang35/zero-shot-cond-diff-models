@@ -5,7 +5,7 @@ import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from datetime import datetime
-# from ddim import *
+from ddim import *
 from ddpm_torch import *
 from functools import partial
 from torch.distributed.elastic.multiprocessing import errors
@@ -171,7 +171,7 @@ def train(rank=0, args=None, temp_dir=""):
             json.dump(hps, f, indent=2)
         if not os.path.exists(image_dir):
             os.makedirs(image_dir)
-    
+
     trainer = Trainer(
         model=model,
         optimizer=optimizer,
@@ -201,7 +201,7 @@ def train(rank=0, args=None, temp_dir=""):
         diffusion_eval = DDIM.from_ddpm(diffusion, eta=0., subsequence=subsequence)
     else:
         diffusion_eval = diffusion
-    
+
     if args.eval:
         evaluator = Evaluator(
             dataset=dataset,
@@ -249,13 +249,13 @@ def main():
     parser.add_argument("--batch-size", default=128, type=int)
     parser.add_argument("--num-accum", default=1, type=int, help="number of mini-batches before an update")
     parser.add_argument("--block-size", default=1, type=int, help="block size used for pixel shuffle")
-    parser.add_argument("--timesteps", default=1000, type=int, help="number of diffusion steps")
+    # parser.add_argument("--timesteps", default=1000, type=int, help="number of diffusion steps")
     # parser.add_argument("--beta-schedule", choices=["quad", "linear", "warmup10", "warmup50", "jsd", "genli"], default="linear")
-    parser.add_argument("--beta-start", default=0.0001, type=float)
-    parser.add_argument("--beta-end", default=0.02, type=float)
-    parser.add_argument("--model-mean-type", choices=["mean", "x_0", "eps"], default="eps", type=str)
-    parser.add_argument("--model-var-type", choices=["learned", "fixed-small", "fixed-large"], default="fixed-large", type=str)  # noqa
-    parser.add_argument("--loss-type", choices=["kl", "mse"], default="mse", type=str)
+    # parser.add_argument("--beta-start", default=0.0001, type=float)
+    # parser.add_argument("--beta-end", default=0.02, type=float)
+    # parser.add_argument("--model-mean-type", choices=["mean", "x_0", "eps"], default="eps", type=str)
+    # parser.add_argument("--model-var-type", choices=["learned", "fixed-small", "fixed-large"], default="fixed-large", type=str)  # noqa
+    # parser.add_argument("--loss-type", choices=["kl", "mse"], default="mse", type=str)
     parser.add_argument("--num-workers", default=4, type=int, help="number of workers for data loading")
     parser.add_argument("--train-device", default="cuda:0", type=str)
     parser.add_argument("--eval-device", default="cuda:0", type=str)
@@ -292,7 +292,7 @@ def main():
         """
         As opposed to the case of rigid launch, distributed training now:
         (*: elastic launch only; **: Slurm srun only)
-         *1. handles failures by restarting all the workers 
+         *1. handles failures by restarting all the workers
          *2.1 assigns RANK and WORLD_SIZE automatically
         **2.2 sets MASTER_ADDR & MASTER_PORT manually beforehand via environment variables
          *3. allows for number of nodes change
