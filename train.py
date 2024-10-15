@@ -189,7 +189,7 @@ def train(rank=0, args=None, temp_dir=""):
         chkpt_intv=chkpt_intv,
         image_intv=train_config.image_intv,
         num_samples=train_config.num_samples,
-        ema_decay=args.ema_decay,
+        ema_decay=train_config.ema_decay,
         rank=rank,
         distributed=distributed,
         dry_run=args.dry_run
@@ -272,11 +272,11 @@ def main():
     parser.add_argument("--eval", action="store_true", help="whether to evaluate fid during training")
     parser.add_argument("--eval-total-size", default=50000, type=int)
     parser.add_argument("--eval-batch-size", default=256, type=int)
-    parser.add_argument("--use-ema", action="store_true", help="whether to use exponential moving average")
+    # parser.add_argument("--use-ema", action="store_true", help="whether to use exponential moving average")
     parser.add_argument("--use-ddim", action="store_true", help="whether to use DDIM sampler for evaluation")
     parser.add_argument("--skip-schedule", choices=["linear", "quadratic"], default="linear", type=str)
     parser.add_argument("--subseq-size", default=50, type=int)
-    parser.add_argument("--ema-decay", default=0.9999, type=float, help="decay factor of ema")
+    # parser.add_argument("--ema-decay", default=0.9999, type=float, help="decay factor of ema")
     parser.add_argument("--distributed", action="store_true", help="whether to use distributed training")
     parser.add_argument("--rigid-launch", action="store_true", help="whether to use torch multiprocessing spawn")
     parser.add_argument("--num-gpus", default=1, type=int, help="number of gpus for distributed training")
