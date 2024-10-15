@@ -9,6 +9,7 @@ test
 precomputed
 figs
 images
+images_cond
 chkpt
 chkpts
 assets

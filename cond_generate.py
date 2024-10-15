@@ -105,7 +105,7 @@ def generate(rank, args, counter=0):
 
     num_workers = args.num_workers
     testloader, _ = get_dataloader(
-        dataset, batch_size=args.batch_size, split="test", download=True,
+        dataset, batch_size=args.batch_size, split="test", download=False,
         root="~/datasets", drop_last=False, pin_memory=True, num_workers=num_workers, distributed=False
     )  # drop_last to have a static input shape; num_workers > 0 to enable asynchronous data loading
 
@@ -116,7 +116,7 @@ def generate(rank, args, counter=0):
         os.makedirs(save_dir_1)
     if is_leader and not os.path.exists(save_dir_2) and args.sigma_y > 0.:
         os.makedirs(save_dir_2)
-    
+
     local_total_size = args.local_total_size
     batch_size = args.batch_size
     if args.world_size > 1:
@@ -133,8 +133,8 @@ def generate(rank, args, counter=0):
         torch.backends.cudnn.benchmark = True  # noqa
 
     # One generated image from each test sample
-    if not args.no_save_x0:
-        save_y_dir = os.path.join(args.save_dir, "y_eval", exp_name, folder_name)
+    if not args.no_save_y:
+        save_y_dir = os.path.join(args.save_dir, "ref_y", exp_name, folder_name)
         if is_leader and not os.path.exists(save_y_dir):
             os.makedirs(save_y_dir)
     assert(args.div > 0)
@@ -143,7 +143,8 @@ def generate(rank, args, counter=0):
             x_orig = x_orig[0]  # discard classification labels
         if i == local_num_batches - 1:
             shape = (local_total_size - i * batch_size, 3, image_res, image_res)
-        y = Hcpu(x_orig) + torch.randn(x_orig.size()) * args.sigma_y
+        y = Hcpu(x_orig)
+        y += torch.randn(y.size()) * args.sigma_y
         x1 = diffusion.p_cond_sample_noisy(model, y, 0., div=args.div, shape=shape, device=device, noise=torch.randn(shape, device=device)).cpu()
         x1 = (x1 * 127.5 + 127.5).round().clamp(0, 255).to(torch.uint8).permute(0, 2, 3, 1).numpy()
         if args.sigma_y > 0.:
@@ -155,7 +156,7 @@ def generate(rank, args, counter=0):
             Image.fromarray(x1[j], mode="RGB").save(f"{save_dir_1}/{iid}.png")
             if args.sigma_y > 0.:
                 Image.fromarray(x2[j], mode="RGB").save(f"{save_dir_2}/{iid}.png")
-            if not args.no_save_x0:
+            if not args.no_save_y:
                 Image.fromarray(x0[j], mode="RGB").save(f"{save_y_dir}/{iid}.png")
 
     # pbar = None
@@ -181,12 +182,12 @@ def main():
     parser.add_argument("--config-path", type=str, help="path to the configuration file")
     parser.add_argument("--dataset", choices=DATASET_DICT.keys(), default="cifar10")
     parser.add_argument("--batch-size", default=128, type=int)
-    # parser.add_argument("--total-size", default=50000, type=int)
+    parser.add_argument("--total-size", default=128, type=int)
     parser.add_argument("--config-dir", default="./configs", type=str)
-    parser.add_argument("--chkpt-dir", default="./chkpts", type=str)
+    parser.add_argument("--chkpt-dir", default="./chkpt", type=str)
     parser.add_argument("--chkpt-path", default="", type=str)
-    parser.add_argument("--save-dir", default="./images", type=str)
-    parser.add_argument("--no-save-x0", action="store_true")
+    parser.add_argument("--save-dir", default="./images_cond", type=str)
+    parser.add_argument("--no-save-y", action="store_true")
     parser.add_argument("--device", default="cuda:0", type=str)
     parser.add_argument("--use-ema", action="store_true")
     parser.add_argument("--use-ddim", action="store_true")
@@ -204,7 +205,7 @@ def main():
     args = parser.parse_args()
 
     assert(args.num_gpus==1)
-    args.total_size = 10000     # size of CIFAR10 test
+    # args.total_size = 10000     # size of CIFAR10 test
 
     world_size = args.world_size = args.num_gpus or 1
     local_total_size = args.local_total_size = args.total_size // world_size

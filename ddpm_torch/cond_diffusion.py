@@ -25,7 +25,7 @@ def gray2color(x):
 
 def get_degradation_operator(deg_type, chan=3, res=32, device=torch.device("cpu")):
     # get degradation operator
-    if device != torch.device("cpu"):
+    if device == torch.device("cpu"):
         print("deg_type:",deg_type)
     if deg_type =='colorization':
         A = lambda z: color2gray(z)
@@ -75,71 +75,71 @@ class ConditionalGaussianDiffusion(GaussianDiffusion):
         self.H = H
         self.Hp = Hp
 
-    def p_cond_mean_var(self, denoise_fn, x_t, t, y, clip_denoised, return_pred):
-        B, C, H, W = x_t.shape
-        out = denoise_fn(x_t, t)
+    # def p_cond_mean_var(self, denoise_fn, x_t, t, y, clip_denoised, return_pred):
+    #     B, C, H, W = x_t.shape
+    #     out = denoise_fn(x_t, t)
+    #
+    #     if self.model_var_type == "learned":
+    #         assert all(out.shape == (B, 2 * C, H, W))
+    #         out, model_logvar = out.chunk(2, dim=1)
+    #         model_var = torch.exp(model_logvar)
+    #     elif self.model_var_type in ["fixed-small", "fixed-large"]:
+    #         model_var, model_logvar = self._extract(self.fixed_model_var, t, x_t),\
+    #                                   self._extract(self.fixed_model_logvar, t, x_t)
+    #     else:
+    #         raise NotImplementedError(self.model_var_type)
+    #
+    #     # calculate the conditional mean estimate
+    #     _clip = (lambda x: x.clamp(-1., 1.)) if clip_denoised else (lambda x: x)
+    #     if self.model_mean_type == "mean":
+    #         pred_x_0 = _clip(self._pred_x_0_from_mean(x_t=x_t, mean=out, t=t))
+    #         pred_x_0 = self.Hp(y) + pred_x_0 - self.Hp(self.H(pred_x_0))
+    #         model_mean = out
+    #     elif self.model_mean_type == "x_0":
+    #         pred_x_0 = _clip(out)
+    #         pred_x_0 = self.Hp(y) + pred_x_0 - self.Hp(self.H(pred_x_0))
+    #         model_mean, *_ = self.q_posterior_mean_var(x_0=pred_x_0, x_t=x_t, t=t)
+    #     elif self.model_mean_type == "eps":
+    #         pred_x_0 = _clip(self._pred_x_0_from_eps(x_t=x_t, eps=out, t=t))
+    #         pred_x_0 = self.Hp(y) + pred_x_0 - self.Hp(self.H(pred_x_0))
+    #         model_mean, *_ = self.q_posterior_mean_var(x_0=pred_x_0, x_t=x_t, t=t)
+    #     else:
+    #         raise NotImplementedError(self.model_mean_type)
+    #
+    #     if return_pred:
+    #         return model_mean, model_var, model_logvar, pred_x_0
+    #     else:
+    #         return model_mean, model_var, model_logvar
+    #
+    # def p_cond_sample_step(self, denoise_fn, x_t, t, y, clip_denoised=True, return_pred=False, generator=None):
+    #     model_mean, _, model_logvar, pred_x_0 = self.p_cond_mean_var(
+    #         denoise_fn, x_t, t, y, clip_denoised=clip_denoised, return_pred=True)
+    #     #model_mean_test, *_ = self.p_cond_mean_var_noisy(
+    #     #    denoise_fn, x_t, t, y, 0., clip_denoised=False)
+    #     #print((model_mean - model_mean_test)[0])
+    #     noise = torch.empty_like(x_t).normal_(generator=generator)
+    #     nonzero_mask = (t > 0).reshape((-1,) + (1,) * (x_t.ndim - 1)).to(x_t)
+    #     sample = model_mean + nonzero_mask * torch.exp(0.5 * model_logvar) * noise
+    #     return (sample, pred_x_0) if return_pred else sample
+    #
+    # @torch.inference_mode()
+    # def p_cond_sample(self, denoise_fn, y, div=1, shape=None, device=torch.device("cpu"), noise=None, seed=None):
+    #     B = (shape or noise.shape)[0]
+    #     t = torch.empty((B, ), dtype=torch.int64, device=device)
+    #     y = y.to(device)
+    #     rng = None
+    #     if seed is not None:
+    #         rng = torch.Generator(device).manual_seed(seed)
+    #     if noise is None:
+    #         x_t = torch.empty(shape, device=device).normal_(generator=rng)
+    #     else:
+    #         x_t = noise.to(device)
+    #     for ti in range(self.timesteps - div, -1, -div):
+    #         t.fill_(ti)
+    #         x_t = self.p_cond_sample_step(denoise_fn, x_t, t, y, generator=rng)
+    #     return x_t
 
-        if self.model_var_type == "learned":
-            assert all(out.shape == (B, 2 * C, H, W))
-            out, model_logvar = out.chunk(2, dim=1)
-            model_var = torch.exp(model_logvar)
-        elif self.model_var_type in ["fixed-small", "fixed-large"]:
-            model_var, model_logvar = self._extract(self.fixed_model_var, t, x_t),\
-                                      self._extract(self.fixed_model_logvar, t, x_t)
-        else:
-            raise NotImplementedError(self.model_var_type)
-
-        # calculate the conditional mean estimate
-        _clip = (lambda x: x.clamp(-1., 1.)) if clip_denoised else (lambda x: x)
-        if self.model_mean_type == "mean":
-            pred_x_0 = _clip(self._pred_x_0_from_mean(x_t=x_t, mean=out, t=t))
-            pred_x_0 = self.Hp(y) + pred_x_0 - self.Hp(self.H(pred_x_0))
-            model_mean = out
-        elif self.model_mean_type == "x_0":
-            pred_x_0 = _clip(out)
-            pred_x_0 = self.Hp(y) + pred_x_0 - self.Hp(self.H(pred_x_0))
-            model_mean, *_ = self.q_posterior_mean_var(x_0=pred_x_0, x_t=x_t, t=t)
-        elif self.model_mean_type == "eps":
-            pred_x_0 = _clip(self._pred_x_0_from_eps(x_t=x_t, eps=out, t=t))
-            pred_x_0 = self.Hp(y) + pred_x_0 - self.Hp(self.H(pred_x_0))
-            model_mean, *_ = self.q_posterior_mean_var(x_0=pred_x_0, x_t=x_t, t=t)
-        else:
-            raise NotImplementedError(self.model_mean_type)
-
-        if return_pred:
-            return model_mean, model_var, model_logvar, pred_x_0
-        else:
-            return model_mean, model_var, model_logvar
-
-    def p_cond_sample_step(self, denoise_fn, x_t, t, y, clip_denoised=True, return_pred=False, generator=None):
-        model_mean, _, model_logvar, pred_x_0 = self.p_cond_mean_var(
-            denoise_fn, x_t, t, y, clip_denoised=clip_denoised, return_pred=True)
-        #model_mean_test, *_ = self.p_cond_mean_var_noisy(
-        #    denoise_fn, x_t, t, y, 0., clip_denoised=False)
-        #print((model_mean - model_mean_test)[0])
-        noise = torch.empty_like(x_t).normal_(generator=generator)
-        nonzero_mask = (t > 0).reshape((-1,) + (1,) * (x_t.ndim - 1)).to(x_t)
-        sample = model_mean + nonzero_mask * torch.exp(0.5 * model_logvar) * noise
-        return (sample, pred_x_0) if return_pred else sample
-
-    @torch.inference_mode()
-    def p_cond_sample(self, denoise_fn, y, div=1, shape=None, device=torch.device("cpu"), noise=None, seed=None):
-        B = (shape or noise.shape)[0]
-        t = torch.empty((B, ), dtype=torch.int64, device=device)
-        y = y.to(device)
-        rng = None
-        if seed is not None:
-            rng = torch.Generator(device).manual_seed(seed)
-        if noise is None:
-            x_t = torch.empty(shape, device=device).normal_(generator=rng)
-        else:
-            x_t = noise.to(device)
-        for ti in range(self.timesteps - div, -1, -div):
-            t.fill_(ti)
-            x_t = self.p_cond_sample_step(denoise_fn, x_t, t, y, generator=rng)
-        return x_t
-
-    def p_cond_mean_var_noisy(self, denoise_fn, x_t, t, y, sigma_y, clip_denoised):
+    def p_cond_mean_var_noisy(self, denoise_fn, x_t, t, y, sigma_y, clip_denoised=False):
         if clip_denoised:
             raise NotImplementedError(clip_denoised)
 
