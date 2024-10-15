@@ -4,6 +4,7 @@ __pycache__
 
 *.ipynb
 .ipynb_checkpoints
+*.zip
 
 test
 precomputed
