@@ -73,10 +73,10 @@ class GaussianDiffusion:
         self.posterior_mean_coef2 = torch.sqrt(alphas) * (1. - alphas_bar_prev) / (1. - self.alphas_bar)
 
         # Added coefficients
-        self.step_posterior_mean_coef2 = betas * self.sqrt_recip_alphas / self.sqrt_one_minus_alphas_bar
         self.alphas = 1 - self.betas
         self.sqrt_recip_alphas = torch.sqrt(1. / self.alphas)
-
+        self.step_posterior_mean_coef2 = betas * self.sqrt_recip_alphas / self.sqrt_one_minus_alphas_bar
+        
         # for fixed model_var_type's
         self.fixed_model_var, self.fixed_model_logvar = {
             "fixed-large": (self.betas, torch.log(torch.cat([self.posterior_var[[1]], self.betas[1:]]))),
@@ -261,7 +261,7 @@ class GaussianDiffusion:
             raise NotImplementedError(self.model_var_type)
         noise = torch.empty_like(x_t).normal_(generator=generator)
         x_t_copy = x_t.detach().clone().requires_grad_(True)
-        grad = torch.autograd.functional.jvp(lambda xx: out(xx, t), x_t_copy, v=noise, create_graph=True)[1]
+        grad = torch.autograd.functional.jvp(lambda xx: denoise_fn(xx, t), x_t_copy, v=noise, create_graph=True)[1]
         model_noise = torch.exp(0.5 * model_logvar) * (noise + .5 * self._extract(self.betas, t, x_t) * grad)
 
         nonzero_mask = (t > 0).reshape((-1,) + (1,) * (x_t.ndim - 1)).to(x_t)
@@ -281,7 +281,7 @@ class GaussianDiffusion:
             x_t = noise.to(device)
         for ti in range(self.timesteps - 1, -1, -1):
             t.fill_(ti)
-            x_t = self.p_cond_sample_accl_step(denoise_fn, x_t, t, generator=rng)
+            x_t = self.p_sample_accl_step(denoise_fn, x_t, t, generator=rng)
         return x_t
 
     # === log likelihood ===

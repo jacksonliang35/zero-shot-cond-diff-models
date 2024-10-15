@@ -21,6 +21,7 @@ if __name__ == "__main__":
     parser.add_argument("--device", default="cuda:0", type=str)
     parser.add_argument("--precomputed-dir", default="./precomputed", type=str)
     parser.add_argument("--seed", default=1234, type=int)
+    parser.add_argument("--deg", choices=["colorization", "denoising", "inpainting"], default="inpainting", type=str, help="type of degradation")
     parser.add_argument("--sample-folder", default="", type=str)
     parser.add_argument("--sample-y-folder", default="", type=str)
     parser.add_argument("--num-gpus", default=1, type=int)
@@ -83,6 +84,7 @@ if __name__ == "__main__":
     yloader = DataLoader(
         yfolder, batch_size=eval_batch_size, shuffle=False,
         num_workers=num_workers, pin_memory=True, drop_last=False)
+    Hcpu, _ = get_degradation_operator(args.deg)
 
     # FID
     def eval_fid():
@@ -110,7 +112,7 @@ if __name__ == "__main__":
     def eval_mse():
         running_loss = 0.
         for x, x0 in tqdm(zip(imageloader, yloader), total=len(imageloader)):
-            running_loss += torch.sum(torch.mean((x-x0).pow(2), dim=[1,2,3]))
+            running_loss += torch.sum(torch.mean((Hcpu(x)-Hcpu(x0)).pow(2), dim=[1,2,3]))
         return running_loss.item() / eval_total_size
     print("MSE:", eval_mse())
 

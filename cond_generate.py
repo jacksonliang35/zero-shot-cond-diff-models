@@ -143,7 +143,7 @@ def generate(rank, args, counter=0):
             x_orig = x_orig[0]  # discard classification labels
         if i == local_num_batches - 1:
             shape = (local_total_size - i * batch_size, 3, image_res, image_res)
-        y = Hcpu(x_orig + torch.randn(x_orig.size()) * args.sigma_y)
+        y = Hcpu(x_orig) + torch.randn(x_orig.size()) * args.sigma_y
         x1 = diffusion.p_cond_sample_noisy(model, y, 0., div=args.div, shape=shape, device=device, noise=torch.randn(shape, device=device)).cpu()
         x1 = (x1 * 127.5 + 127.5).round().clamp(0, 255).to(torch.uint8).permute(0, 2, 3, 1).numpy()
         if args.sigma_y > 0.:
