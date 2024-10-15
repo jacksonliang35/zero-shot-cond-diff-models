@@ -263,7 +263,7 @@ def main():
     parser.add_argument("--image-intv", default=10, type=int)
     parser.add_argument("--num-samples", default=64, type=int, help="number of images to sample and save")
     parser.add_argument("--config-dir", default="./configs", type=str)
-    parser.add_argument("--chkpt-dir", default="./chkpts", type=str)
+    parser.add_argument("--chkpt-dir", default="./chkpt", type=str)
     parser.add_argument("--chkpt-name", default="", type=str)
     parser.add_argument("--chkpt-intv", default=10, type=int, help="frequency of saving a checkpoint")
     parser.add_argument("--seed", default=1234, type=int, help="random seed")
