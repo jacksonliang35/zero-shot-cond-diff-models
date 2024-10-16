@@ -305,8 +305,9 @@ def get_dataloader(
     }
     dataloader_configs["sampler"] = sampler = DistributedSampler(
         dataset, shuffle=True, seed=random_seed, drop_last=drop_last) if distributed else None
-    # dataloader_configs["shuffle"] = ((sampler is None) if split in {"train", "all"} else False) and not raw
-    dataloader_configs["shuffle"] = True
+    dataloader_configs["shuffle"] = ((sampler is None) if split in {"train", "all"} else False) and not raw
+    if split == "test":
+        dataloader_configs["shuffle"] = True
     dataloader = DataLoader(dataset, **dataloader_configs)
     return dataloader, sampler
 
