@@ -47,8 +47,8 @@ def generate(rank, args, counter=0):
     num_diffusion_timesteps = diffusion_kwargs.pop("timesteps")
     betas = get_beta_schedule(beta_schedule, beta_start, beta_end, num_diffusion_timesteps)
 
-    H, Hp = get_degradation_operator(args.deg, device=device)
-    Hcpu, _ = get_degradation_operator(args.deg)
+    H, Hp = get_degradation_operator(args.deg, chan=in_channels, res=image_res, device=device)
+    Hcpu, _ = get_degradation_operator(args.deg, chan=in_channels, res=image_res)
 
     use_ddim = args.use_ddim
     if use_ddim:
