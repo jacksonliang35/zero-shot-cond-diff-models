@@ -35,7 +35,7 @@ def generate(rank, args, counter=0):
     exp_name = os.path.basename(args.config_path)[:-5]
 
     dataset = meta_config.get("dataset", args.dataset)
-    assert(dataset == "cifar10")    # Only tested on CIFAR10
+    # assert(dataset == "cifar10")    # Only tested on CIFAR10
     in_channels = DATASET_INFO[dataset]["channels"]
     image_res = DATASET_INFO[dataset]["resolution"][0]
     input_shape = (in_channels, image_res, image_res)
@@ -212,6 +212,8 @@ def main():
     world_size = args.world_size = args.num_gpus or 1
     local_total_size = args.local_total_size = args.total_size // world_size
     batch_size = args.batch_size
+    if args.batch_size > args.total_size:
+        batch_size = args.batch_size = args.total_size
     remainder = args.total_size % world_size
     num_batches = math.ceil((local_total_size + 1) / batch_size) * remainder
     num_batches += math.ceil(local_total_size / batch_size) * (world_size - remainder)
