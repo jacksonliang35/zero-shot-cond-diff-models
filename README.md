@@ -322,8 +322,8 @@ Configurations: 200 epochs, ETC noise schedule, no measurement noise
 
 | Dataset |  Distorted  | DDNM | BO-DDNM |
 | ------------- | ------------- | ------------- | ------------- |
-| CIFAR10  | ![](exp/cifar10_ref_y.png) | ![](exp/cifar10_eval_novar.png) 	| ![](exp/cifar10_eval_var.png) |
-| CelebA   | ![](exp/celeba_ref_y.png) 	| ![](exp/celeba_eval_novar.png) 	| ![](exp/celeba_eval_var.png) 	|
+| CIFAR10  | ![](https://github.com/jacksonliang35/jacksonliang35/tree/83e0071631051c76e9a842c52049d98ebc81222f/zero-shot-exp/cifar10_ref_y.png) | ![](https://github.com/jacksonliang35/jacksonliang35/tree/83e0071631051c76e9a842c52049d98ebc81222f/zero-shot-exp/cifar10_eval_novar.png) 	| ![](https://github.com/jacksonliang35/jacksonliang35/tree/83e0071631051c76e9a842c52049d98ebc81222f/zero-shot-exp/cifar10_eval_var.png) |
+| CelebA   | ![](https://github.com/jacksonliang35/jacksonliang35/tree/83e0071631051c76e9a842c52049d98ebc81222f/zero-shot-exp/celeba_ref_y.png) 	| ![](https://github.com/jacksonliang35/jacksonliang35/tree/83e0071631051c76e9a842c52049d98ebc81222f/zero-shot-exp/celeba_eval_novar.png) 	| ![](https://github.com/jacksonliang35/jacksonliang35/tree/83e0071631051c76e9a842c52049d98ebc81222f/zero-shot-exp/celeba_eval_var.png) 	|
 
 
 ## References
