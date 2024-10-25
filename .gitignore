@@ -14,6 +14,7 @@ images_cond
 chkpt
 chkpts
 assets
+exp
 
 generate_accl.py
 train_toy.py
