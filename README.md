@@ -264,7 +264,7 @@ optional arguments:
 
 ## Experiment with synthetic data
 
-![Comparison of BO-DDNM, DDNM and DDNM$^+$ for Gaussian (left) and Gaussian mixture (right) $Q_0$ under measurement noise](exp/gauss_mixture_kl_sigy.png)
+![Comparison of BO-DDNM, DDNM and DDNM$^+$ for Gaussian (left) and Gaussian mixture (right) $Q_0$ under measurement noise](https://github.com/jacksonliang35/jacksonliang35/tree/83e0071631051c76e9a842c52049d98ebc81222f/zero-shot-exp/gauss_mixture_kl_sigy.png)
 
 ## Experiment with CIFAR10
 
