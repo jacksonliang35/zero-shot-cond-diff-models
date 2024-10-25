@@ -1,19 +1,19 @@
-<p align="center"><img alt="banner" src="./assets/banner.webp" width="100%"></p>
-
----
-
-# PyTorch Implementation of Denoising Diffusion Probabilistic Models [[paper]](https://arxiv.org/abs/2006.11239) [[official repo]](https://github.com/hojonathanho/diffusion)
+# Zero-shot Conditional DDPM samplers
 
 
 ## Features
 
-- [x] Original DDPM[^1] training & sampling
-- [x] DDIM[^2] sampler
-- [x] Standard evaluation metrics
-	- [x] Fréchet Inception Distance[^3] (FID)
-	- [x] Precision & Recall[^4]
-- [x] Distributed Data Parallel[^5] (DDP) multi-GPU training
-
+- DDPM[^1] and DDIM[^2] for conditional sampling
+	- Image colorization, denoising, and inpainting
+	- Optimal Exponential-Then-Constant noise schedule[^3]
+- DDNM[^4] zero-shot conditional sampler
+- BO-DDNM[^5] zero-shot conditional sampler
+- Evaluation metrics
+	- KL-divergence for synthetic data
+	- MSE
+	- Fréchet Inception Distance[^6] (FID)
+	- Structure Similarity Index Method (SSIM)
+	- Learned Perceptual Image Patch Similarity[^7] (LPIPS)
 
 ## Requirements
 
@@ -24,7 +24,7 @@
 
 ## Code usage
 
-<p align="center">
+<!-- <p align="center">
 	<table width="100%">
 		<tr>
 			<th width="25%" align="center">Toy data</th>
@@ -205,24 +205,24 @@ optional arguments:
 			</td>
 		</tr>
 	</table>
-</p>
+</p> -->
 
-**Examples**
+<!-- **Examples** -->
 
-- Train a 25-Gaussian toy model with single GPU (device id: 0) for a total of 100 epochs
+<!-- - Train a 25-Gaussian toy model with single GPU (device id: 0) for a total of 100 epochs
 
     ```shell
     python train_toy.py --dataset gaussian25 --device cuda:0 --epochs 100
-    ```
+    ``` -->
 
 - Train CIFAR-10 model with single GPU (device id: 0) for a total of 50 epochs
     ```shell
     python train.py --dataset cifar10 --train-device cuda:0 --epochs 50
     ```
 
-(*You can always use `dry-run` for testing/tuning purpose.*)
+<!-- (*You can always use `dry-run` for testing/tuning purpose.*) -->
 
-- Train a CelebA model with an effective batch size of 64 x 2 x 4 = 128 on a four-card machine (single node) using shared file-system initialization
+<!-- - Train a CelebA model with an effective batch size of 64 x 2 x 4 = 128 on a four-card machine (single node) using shared file-system initialization
     ```shell
     python train.py --dataset celeba --num-accum 2 --num-gpus 4 --distributed --rigid-launch
     ```
@@ -230,262 +230,108 @@ optional arguments:
     - `num-gpus`: number of GPU(s) to use for training, i.e. `WORLD_SIZE` of the process group
     - `distributed`: enable multi-gpu DDP training
     - `rigid-run`: use shared-file system initialization and `torch.multiprocessing`
-    
+
 - (**Recommended**) Train a CelebA model with an effective batch-size of 64 x 1 x 2 = 128 using only two GPUs with `torchrun` Elastic Launch[^6] (TCP initialization)
     ```shell
     export CUDA_VISIBLE_DEVICES=0,1&&torchrun --standalone --nproc_per_node 2 --rdzv_backend c10d train.py --dataset celeba --distributed
-    ```
+    ``` -->
 
-- Generate 50,000 samples (128 per mini-batch) of the checkpoint located at `./chkpts/cifar10/cifar10_2040.pt` in parallel using 4 GPUs and DDIM sampler. The results are stored in `./images/eval/cifar10/cifar10_2040_ddim`
+- Generate 10,000 conditional samples (128 per mini-batch) of the checkpoint located at `./chkpts/cifar10/cifar10_2040.pt` in parallel using DDIM sampler for inpainting. The degraded images are stored in `./images_cond/ref_y/cifar10/cifar10_2040`, and the restored images by DDNM are stored in `./images_cond/eval_novar/cifar10/cifar10_2040`. When there is positive measurement noise, the restored images by BO-DDNM are stored in `./images_cond/eval_var/cifar10/cifar10_2040`.
+	```shell
+	python generate.py --dataset cifar10 --total-size 10000 --chkpt-path ./chkpts/cifar10/cifar10_2040.pt --use-ddim --skip-schedule quadratic --subseq-size 100 --deg inpainting
+	```
+	- `deg`: type of image degradation (colorization, denoising, inpainting, etc.)
+	- `sigma-y`: additional Gaussian observation noise variance
+    - `use-ddim`: use DDIM
+    - `skip-schedule quadratic`: use the quadratic schedule
+	- `div`: number of skipped next sampling points for each point (by which the total number of steps is divisible)
+    - `subseq-size`: length of sub-sequence, i.e. DDIM timesteps
+
+<!-- - Generate 10,000 conditional samples from the CIFAR10 test dataset using 1 GPU. When observation noise is zero, the results are stored in folders `...`. Otherwise, the BO-DDNM results are stored in `...`
 	```shell
 	python generate.py --dataset cifar10 --chkpt-path ./chkpts/cifar10/cifar10_2040.pt --use-ddim --skip-schedule quadratic --subseq-size 100 --suffix _ddim --num-gpus 4
 	```
-    - `use-ddim`: use DDIM
-    - `skip-schedule quadratic`: use the quadratic schedule
-    - `subseq-size`: length of sub-sequence, i.e. DDIM timesteps
-    - `suffix`: suffix string to the dataset name in the folder name
-    - `num-gpus`: number of GPU(s) to use for generation
+	- `use-ddim`: use DDIM
+	- `skip-schedule quadratic`: use the quadratic schedule
+	- `subseq-size`: length of sub-sequence, i.e. DDIM timesteps
+	- `suffix`: suffix string to the dataset name in the folder name
+	- `num-gpus`: number of GPU(s) to use for generation -->
 
-- Evaluate FID, Precision/Recall of generated samples in `./images/eval/cifar10_2040`
+- Evaluate FID (for image quality), MSE, SSIM, and LPIPS (for consistency) of generated conditional samples in `./images_cond/eval_novar/cifar10_2040` (with the reference images in `./images_cond/ref_y/cifar10_2040`)
 	```shell
-	python eval.py --dataset cifar10 --sample-folder ./images/eval/cifar10/cifar10_2040
+	python eval_cond.py --dataset cifar10 --sample-folder ./images/eval_novar/cifar10/cifar10_2040 --sample-y-folder ./images/ref_y/cifar10/cifar10_2040
 	```
 
-## Experiment results
+## Experiment with synthetic data
 
-### Toy data
+![Comparison of BO-DDNM, DDNM and DDNM$^+$ for Gaussian (left) and Gaussian mixture (right) $Q_0$ under measurement noise](exp/gauss_mixture_kl_sigy.png)
 
-<p align="center">
-	<table width="100%">
-		<tr>
-			<th width="10%"><b>Dataset</b></th>
-			<th width="30%" align="center">8&nbsp;Gaussian</th>
-			<th width="30%" align="center">25&nbsp;Gaussian</th>
-			<th width="30%" align="center">Swiss&nbsp;Roll</th>
-		</tr><tr>
-			<td><b>True</b></td>
-			<td><a href="./assets/toy/gaussian8_true.jpg">
-			<img alt="gaussian8_true_thumbnail" src="./assets/thumbnails/toy/gaussian8_true.jpg">
-			</a></td>
-			<td><a href="./assets/toy/gaussian25_true.jpg">
-			<img alt="gaussian25_true_thumbnail" src="./assets/thumbnails/toy/gaussian25_true.jpg"></a></td>
-			<td><a href="./assets/toy/swissroll_true.jpg">
-			<img alt="swissroll_true_thumbnail" src="./assets/thumbnails/toy/swissroll_true.jpg"></a></td>
-		</tr><tr>
-			<td><b>Generated</b></td>
-			<td><a href="./assets/toy/gaussian8_gen.jpg">
-			<img alt="gaussian8_true_thumbnail" src="./assets/thumbnails/toy/gaussian8_gen.jpg"></a></td>
-			<td><a href="./assets/toy/gaussian25_gen.jpg">
-			<img alt="gaussian25_true_thumbnail" src="./assets/thumbnails/toy/gaussian25_gen.jpg"></a></td>
-			<td><a href="./assets/toy/swissroll_gen.jpg">
-			<img alt="swissroll_true_thumbnail" src="./assets/thumbnails/toy/swissroll_gen.jpg"></a></td>
-		</tr>
-	</table>
-</p>
+## Experiment with CIFAR10
 
-<details>
-	<summary>Training process (animated)</summary>
-    <p>
-        <table width="100%">
-            <tr>
-                <th width="10%"><b>Dataset</b></th>
-                <th width="30%" align="center">8&nbsp;Gaussian</th>
-                <th width="30%" align="center">25&nbsp;Gaussian</th>
-                <th width="30%" align="center">Swiss&nbsp;Roll</th>
-            </tr><tr>
-                <td><b>Generated</b></td>
-                <td><a href="./assets/toy/gaussian8_train.webp">
-				<img alt="gaussian8_train_thumbnail" src="./assets/thumbnails/toy/gaussian8_train.webp"></a></td>
-                <td><a href="./assets/toy/gaussian25_train.webp">
-				<img alt="gaussian25_train_thumbnail" src="./assets/thumbnails/toy/gaussian25_train.webp"></a></td>
-                <td><a href="./assets/toy/swissroll_train.webp">
-				<img alt="swissroll_train_thumbnail" src="./assets/thumbnails/toy/swissroll_train.webp"></a></td>
-            </tr>
-        </table>
-    </p>
-</details>
-
-### Real-world data
-
-*Table of evaluated metrics*
+Configurations: 200 epochs, ETC noise schedule, no measurement noise
 
 <p align="center">
     <table width="100%">
         <tr>
-            <th align="center">Dataset</th>
-            <th align="center">FID (↓)</th>
-            <th align="center">Precision (↑)</th>
-            <th align="center">Recall (↑)</th>
-            <th align="center">Training steps</th>
-            <th align="center">Training loss</th>
-            <th align="center">Checkpoint</th>
+			<th align="center">Num of steps </th>
+			<th align="center">MSE (↓)</th>
+			<th align="center">FID (↓)</th>
+            <th align="center">SSIM (↑)</th>
+            <th align="center">LPIPS (↓)</th>
         </tr><tr>
-            <td align="center">CIFAR-10</td>
-            <td align="center">9.162</td>
-            <td align="center">0.691</td>
-            <td align="center">0.473</td>
-            <td align="center">46.8k</td>
-            <td align="center">0.0295</td>
-			<td align="center">-</td>
-        </tr>
-        <tr>
-            <td align="center">|__</td>
-            <td align="center">5.778</td>
-            <td align="center">0.697</td>
-            <td align="center">0.516</td>
-            <td align="center">93.6k</td>
-            <td align="center">0.0293</td>
-            <td align="center">-</td>
+			<td align="center">100</td>
+            <td align="center">4.9383</td>
+            <td align="center">0.01397</td>
+            <td align="center">0.8280</td>
+            <td align="center">0.0617</td>
         </tr><tr>
-            <td align="center">|__</td>
-            <td align="center">4.083</td>
-            <td align="center">0.705</td>
-            <td align="center">0.539</td>
-            <td align="center">187.2k</td>
-            <td align="center">0.0291</td>
-            <td align="center">-</td>
+			<td align="center">200</td>
+			<td align="center">4.7016</td>
+			<td align="center">0.01366</td>
+			<td align="center">0.8315</td>
+			<td align="center">0.0595</td>
         </tr><tr>
-            <td align="center">|__</td>
-            <td align="center">3.31</td>
-            <td align="center">0.722</td>
-            <td align="center"><b>0.551</b></td>
-            <td align="center">421.2k</td>
-            <td align="center">0.0284</td>
-            <td align="center">-</td>
-        </tr>
-        <tr>
-            <td align="center">|__</td>
-            <td align="center"><b>3.188</b></td>
-            <td align="center"><b>0.739</b></td>
-            <td align="center">0.544</td>
-            <td align="center">795.6k</td>
-            <td align="center"><b>0.0277</b></td>
-            <td align="center"><a href="https://github.com/tqch/ddpm-torch/releases/download/checkpoints/cifar10_2040.pt">[Link]</a></td>
+			<td align="center">500</td>
+            <td align="center">4.7523</td>
+            <td align="center">0.01362</td>
+            <td align="center">0.8317</td>
+            <td align="center">0.0592</td>
         </tr><tr>
-            <td align="center">CelebA</td>
-            <td align="center">4.806</td>
-            <td align="center"><b>0.772</b></td>
-            <td align="center">0.484</td>
-            <td align="center">189.8k</td>
-            <td align="center">0.0155</td>
-			<td align="center">-</td>
-        </tr>
-        <tr>
-            <td align="center">|__</td>
-            <td align="center">3.797</td>
-            <td align="center">0.764</td>
-            <td align="center">0.511</td>
-            <td align="center">379.7k</td>
-            <td align="center">0.0152</td>
-			<td align="center">-</td>
-        </tr>
-        <tr>
-            <td align="center">|__</td>
-            <td align="center"><b>2.995</b></td>
-            <td align="center">0.760</td>
-            <td align="center"><b>0.540</b></td>
-            <td align="center">949.2k</td>
-            <td align="center"><b>0.0148</b></td>
-			<td align="center"><a href="https://github.com/tqch/ddpm-torch/releases/download/checkpoints/celeba_600.pt">[Link]</a></td>
+			<td align="center">1000</td>
+			<td align="center">4.5943</td>
+			<td align="center">0.01345</td>
+			<td align="center">0.8328</td>
+			<td align="center">0.0585</td>
         </tr><tr>
-            <td align="center">CelebA-HQ</td>
-            <td align="center">19.742</td>
-            <td align="center">0.683</td>
-            <td align="center">0.256</td>
-            <td align="center">56.2k</td>
-            <td align="center">0.0105</td>
-			<td align="center">-</td>
-        </tr>
-        <tr>
-            <td align="center">|__</td>
-            <td align="center">11.971</td>
-            <td align="center">0.705</td>
-            <td align="center">0.364</td>
-            <td align="center">224.6k</td>
-            <td align="center"><b>0.0097</b></td>
-			<td align="center">-</td>
-        </tr>
-        <tr>
-            <td align="center">|__</td>
-            <td align="center"><b>8.851</b></td>
-            <td align="center">0.768</td>
-            <td align="center"><b>0.376</b></td>
-            <td align="center">393.1k</td>
-            <td align="center">0.0098</td>
-            <td align="center">-</td>
-        </tr>
-        <tr>
-            <td align="center">|__</td>
-            <td align="center">8.91</td>
-            <td align="center"><b>0.800</b></td>
-            <td align="center">0.357</td>
-            <td align="center">561.6k</td>
-            <td align="center">0.0097</td>
-            <td align="center"><a href="https://github.com/tqch/ddpm-torch/releases/download/celeba_hq/celebahq_1200.pt">[Link]</a></td>
+			<td align="center">1500</td>
+			<td align="center">4.6348</td>
+			<td align="center">0.01357</td>
+			<td align="center">0.8327</td>
+			<td align="center">0.0583</td>
+        </tr><tr>
+			<td align="center">2000</td>
+			<td align="center">4.5995</td>
+			<td align="center">0.01356</td>
+			<td align="center">0.8332</td>
+			<td align="center">0.0584</td>
         </tr>
     </table>
 </p>
 
-<p align="center">
-	<table width="100%">
-            <tr>
-                <th width="10%">Dataset</th>
-                <th width="30%" align="center">CIFAR-10</td>
-                <th width="30%" align="center">CelebA</td>
-                <th width="30%" align="center">CelebA-HQ</td>
-            </tr><tr>
-                <td><b>Generated images</b></td>
-                <td><a href="./assets/cifar10_gen.png">
-                <img alt="cifar10_gen" src="./assets/cifar10_gen.png" height="100%" width="100%">
-                </a></td>
-                <td><a href="./assets/celeba_gen.png" >
-                <img alt="celeba_gen_thumbnail" src="./assets/thumbnails/celeba_gen.png" height="100%" width="100%">
-                </a></td>
-                <td><a href="./assets/celebahq_gen.png" >
-                <img alt="celebahq_gen_thumbnail" src="./assets/thumbnails/celebahq_gen.png" height="100%" width="100%">
-                </a></td>
-            </tr>
-    </table>
-</p>
+## Examples
 
-<details>
-	<summary>Denoising process (animated)</summary>
-    <p align="center">
-        <table width="100%">
-        	<tr>
-                <th width="10%">Dataset</th>
-                <th width="30%" align="center">CIFAR-10</td>
-                <th width="30%" align="center">CelebA</td>
-                <th width="30%" align="center">CelebA-HQ</td>
-            </tr><tr>
-                <td><b>Generated images</b></td>
-                <td>
-                <a href="./assets/cifar10_denoise.webp">
-                <img alt="cifar10_denoise" src="./assets/cifar10_denoise.webp" height="100%" width="100%">
-                </a></td>
-                <td><a href="./assets/celeba_denoise.mp4">
-                <img alt="celeba_denoise_thumbnail" src="./assets/thumbnails/celeba_denoise.webp" height="100%" width="100%">
-                </a></td>
-                <td>
-                <a href="./assets/celebahq_denoise.mp4">
-                <img alt="celebahq_denoise_thumbnail" src="./assets/thumbnails/celebahq_denoise.webp" height="100%" width="100%">
-                </a></td>
-			</tr>
-        </table>
-    </p>
-</details>
-
-## Related repositories
-- Simple Web App empowered by Streamlit: [[tqch/diffusion-webapp]](https://github.com/tqch/diffusion-webapp)
-- Classifier-Free Guidance: [[tqch/v-diffusion-torch]](https://github.com/tqch/v-diffusion-torch)
+| Dataset |  Distorted  | DDNM | BO-DDNM |
+| ------------- | ------------- | ------------- | ------------- |
+| CIFAR10  | ![](exp/cifar10_ref_y.png) | ![](exp/cifar10_eval_novar.png) 	| ![](exp/cifar10_eval_var.png) |
+| CelebA   | ![](exp/celeba_ref_y.png) 	| ![](exp/celeba_eval_novar.png) 	| ![](exp/celeba_eval_var.png) 	|
 
 
 ## References
 
 [^1]: Ho, Jonathan, Ajay Jain, and Pieter Abbeel. "Denoising diffusion probabilistic models." Advances in Neural Information Processing Systems 33 (2020): 6840-6851.
 [^2]: Song, Jiaming, Chenlin Meng, and Stefano Ermon. "Denoising Diffusion Implicit Models." International Conference on Learning Representations. 2020.
-[^3]: Heusel, Martin, et al. "Gans trained by a two time-scale update rule converge to a local nash equilibrium." Advances in neural information processing systems 30 (2017).
-[^4]: Kynkäänniemi, Tuomas, et al. "Improved precision and recall metric for assessing generative models." Advances in Neural Information Processing Systems 32 (2019).
-[^5]: DistributedDataParallel - PyTorch 1.12 Documentation, https://pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html.
-[^6]: Torchrun (Elastic Launch) - PyTorch 1.12 Documentation*, https://pytorch.org/docs/stable/elastic/run.html. 
-
+[^3]: Chen, Hongrui, Holden Lee, and Jianfeng Lu. "Improved Analysis of Score-based Generative Modeling: User-friendly Bounds under Minimal Smoothness Assumptions." International Conference on Machine Learning. 2023.
+[^4]: Wang, Yinhuai, Jiwen Yu, and Jian Zhang. "Zero-shot Image Restoration using Denoising Diffusion Null-space Model." International Conference on Learning Representations. 2023.
+[^5]: Liang, Yuchen, Peizhong Ju, Yingbin Liang, and Ness Shroff. "Theory on Score-Mismatched Diffusion Models and Zero-Shot Conditional Samplers." arXiv:2410.13746.
+[^6]: Heusel, Martin, et al. "Gans trained by a two time-scale update rule converge to a local nash equilibrium." Advances in Neural Information Processing Systems 30 (2017).
+[^7]: Zhang, Richard, et al. "The Unreasonable Effectiveness of Deep Features as a Perceptual Metric." Computer Vision and Pattern Recognition Conference. 2018.

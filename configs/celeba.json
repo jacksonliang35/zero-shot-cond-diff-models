@@ -4,7 +4,7 @@
     "timesteps": 1000,
     "beta_start": 0.0001,
     "beta_end": 0.02,
-    "beta_schedule": "genli",
+    "beta_schedule": "etc",
     "model_mean_type": "eps",
     "model_var_type": "fixed-small",
     "loss_type": "mse"

@@ -23,7 +23,7 @@ def get_beta_schedule(beta_schedule, beta_start, beta_end, timesteps, dtype=torc
         betas = beta_end * torch.ones(timesteps, dtype=dtype)
     elif beta_schedule == 'jsd':  # 1/T, 1/(T-1), 1/(T-2), ..., 1
         betas = 1. / torch.linspace(timesteps, 1, timesteps, dtype=dtype)
-    elif beta_schedule == 'genli':
+    elif beta_schedule == 'etc':
         t_values = torch.arange(1, timesteps+1, dtype=dtype)
         c = 3.
         inner = beta_start * (1 + c * math.log(timesteps) / timesteps)**(t_values)
@@ -76,7 +76,7 @@ class GaussianDiffusion:
         self.alphas = 1 - self.betas
         self.sqrt_recip_alphas = torch.sqrt(1. / self.alphas)
         self.step_posterior_mean_coef2 = betas * self.sqrt_recip_alphas / self.sqrt_one_minus_alphas_bar
-        
+
         # for fixed model_var_type's
         self.fixed_model_var, self.fixed_model_logvar = {
             "fixed-large": (self.betas, torch.log(torch.cat([self.posterior_var[[1]], self.betas[1:]]))),
